@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAMPUSLINK – AI Powered Campus-to-Corporate Placement & Analytics Platform</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Design System -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ROOT SHELL -->
+  <div id="app-shell">
+
+    <!-- COLLAPSIBLE ENTERPRISE SIDEBAR DRAWER -->
+    <aside id="app-sidebar">
+      <!-- Sidebar Header / Brand -->
+      <div class="sidebar-header">
+        <a href="#landing" class="sidebar-brand" onclick="CampusLinkApp.closeSidebar()">
+          <img src="assets/campuslink_logo.png" alt="CampusLink Logo" class="brand-logo-img" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
+          <div>
+            <div class="brand-title">CAMPUSLINK</div>
+          </div>
+        </a>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="sidebar-close-btn" onclick="CampusLinkApp.closeSidebar()" title="Close Menu">
+            <i data-lucide="x" style="width:18px; height:18px;"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Current Role Indicator -->
+      <div class="sidebar-role-indicator">
+        <div id="sidebar-role-pill" class="role-badge-pill student">
+          <i data-lucide="shield-check" style="width:13px; height:13px;"></i>
+          <span id="sidebar-role-text">Student Portal</span>
+        </div>
+      </div>
+
+      <!-- Scrollable Navigation Items -->
+      <div class="sidebar-nav-scroll" id="sidebar-nav-container">
+        <!-- Rendered dynamically by app.js based on role -->
+      </div>
+
+      <!-- Sidebar User Profile Footer -->
+      <div class="sidebar-footer">
+        <div class="user-quick-profile">
+          <img id="sidebar-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="User" class="user-avatar">
+          <div class="user-info-text">
+            <div id="sidebar-user-name" class="user-name">Aarav Sharma</div>
+            <div id="sidebar-user-title" class="user-subtitle">B.Tech CSE '26</div>
+          </div>
+          <button class="sidebar-logout-btn" onclick="CampusLinkApp.handleLogout()" title="Logout">
+            <i data-lucide="log-out" style="width:15px; height:15px;"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- SIDEBAR BACKDROP OVERLAY -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="CampusLinkApp.closeSidebar()"></div>
+
+    <!-- MAIN APP CANVAS -->
+    <div id="app-main">
+      <div class="govt-top-strip"></div>
+
+      <!-- TOP STICKY HEADER -->
+      <header id="app-header">
+        <!-- Left: Mobile Toggle & Breadcrumbs -->
+        <div class="header-left">
+          <button class="header-toggle-sidebar" id="sidebar-toggle-btn" onclick="CampusLinkApp.toggleSidebar()" title="Toggle Sidebar Navigation (Full Screen View)" aria-label="Toggle Sidebar Navigation">
+            <i data-lucide="menu" style="width:20px; height:20px;"></i>
+          </button>
+          <div class="breadcrumbs" id="header-breadcrumbs">
+            <span>Home</span>
+            <span class="breadcrumb-separator">/</span>
+            <span class="breadcrumb-current">Dashboard</span>
+          </div>
+        </div>
+
+        <!-- Center: Global Instant Search -->
+        <div class="header-center">
+          <div class="global-search-box">
+            <i data-lucide="search" class="search-icon-inside"></i>
+            <input type="text" id="global-search-input" class="global-search-input" placeholder="Search jobs, students, skills, drives, reports..." onkeyup="CampusLinkApp.handleGlobalSearch(event)">
+          </div>
+        </div>
+
+        <!-- Right: Authenticated User Info, Notifications, Logout -->
+        <div class="header-right">
+          <!-- Active Role Verified Badge -->
+          <div id="header-role-badge-container">
+            <span class="badge badge-info" id="header-user-role-badge" style="font-size:12px; font-weight:700; padding:5px 12px;">Student Portal</span>
+          </div>
+
+          <!-- Notification Bell with Dynamic Unread Badge -->
+          <button class="header-icon-btn" onclick="CampusLinkApp.navigateToNotifications()" title="Notifications" id="header-notification-btn">
+            <i data-lucide="bell" style="width:17px; height:17px;"></i>
+            <span class="notification-badge" id="header-notification-badge" style="display:none;">0</span>
+          </button>
+
+          <!-- Dark / Light Theme Toggle Button -->
+          <button class="header-icon-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark / Light Mode" id="header-theme-btn" aria-label="Toggle Dark / Light Mode">
+            <i data-lucide="moon" id="header-theme-icon" style="width:17px; height:17px; color:#64748b;"></i>
+          </button>
+
+          <!-- Placement AI Help -->
+          <button class="header-icon-btn" onclick="CampusLinkApp.toggleAIAssistant()" title="CampusLink AI Assistant" id="header-ai-btn">
+            <i data-lucide="sparkles" style="width:17px; height:17px; color:#2563eb;"></i>
+          </button>
+
+          <!-- Explicit Logout Button -->
+          <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.handleLogout()" title="Log out of session" style="color:#991b1b; border-color:#fecaca; background:#fff1f2;">
+            <i data-lucide="log-out" style="width:14px; height:14px;"></i>
+            <span>Log Out</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- DYNAMIC CONTENT HOST CONTAINER -->
+      <main id="app-content">
+        <!-- Page view is injected here by app.js router -->
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- FLOATING GLOBAL AI ASSISTANT BUTTON -->
+  <button id="ai-assistant-fab" onclick="CampusLinkApp.toggleAIAssistant()">
+    <i data-lucide="bot" style="width:20px; height:20px;"></i>
+    <span>Placement AI</span>
+  </button>
+
+  <!-- SLIDE-OVER AI ASSISTANT DRAWER -->
+  <div id="ai-assistant-drawer">
+    <div class="ai-drawer-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:32px; height:32px; border-radius:50%; background:#0284c7; display:flex; align-items:center; justify-content:center;">
+          <i data-lucide="sparkles" style="width:18px; height:18px; color:white;"></i>
+        </div>
+        <div>
+          <div style="font-weight:700; font-size:15px;">CampusLink AI Assistant</div>
+          <div style="font-size:11px; color:#93c5fd;">Active Placement Copilot</div>
+        </div>
+      </div>
+      <button onclick="CampusLinkApp.toggleAIAssistant()" style="background:none; border:none; color:#cbd5e1; cursor:pointer;">
+        <i data-lucide="x" style="width:20px; height:20px;"></i>
+      </button>
+    </div>
+    
+    <div class="ai-drawer-body" id="ai-chat-messages">
+      <div class="chat-bubble assistant">
+        <strong>Hello Aarav!</strong> I'm your placement copilot. I can analyze your readiness score, suggest tailored prep plans for Google/Amazon, or clarify drive eligibility. How can I help you today?
+      </div>
+    </div>
+
+    <!-- Canned Prompt Chips -->
+    <div style="padding:10px 16px; background:#f1f5f9; display:flex; gap:6px; overflow-x:auto;">
+      <button class="badge badge-info" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('How do I improve my System Design score for Google?')">Improve System Design</button>
+      <button class="badge badge-purple" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('What are the critical skill gaps for SDE-1?')">SDE-1 Skill Gaps</button>
+      <button class="badge badge-cyan" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('Explain the Microsoft vs Amazon interview conflict.')">Conflict Summary</button>
+    </div>
+
+    <div class="ai-drawer-footer">
+      <form class="chat-input-row" onsubmit="CampusLinkApp.handleAIChatSubmit(event)">
+        <input type="text" id="ai-chat-input" class="chat-input" placeholder="Ask anything about placements, CTC, skills...">
+        <button type="submit" class="btn btn-primary btn-sm" style="border-radius:var(--radius-full); width:40px; height:40px; padding:0;">
+          <i data-lucide="send" style="width:16px; height:16px;"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- UNIVERSAL MODAL OVERLAY -->
+  <div id="universal-modal" class="modal-overlay">
+    <div class="modal-card" id="universal-modal-content">
+      <!-- Injected dynamically -->
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container"></div>
+
+  <!-- APPLICATION SCRIPTS -->
+  <script src="mockData.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
