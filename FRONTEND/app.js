@@ -89,6 +89,36 @@ const CampusLinkApp = {
       landingBtn.title = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
     }
 
+    // Update Landing Hero Theme Toggle
+    const heroIcon = document.getElementById('hero-theme-icon');
+    const heroLabel = document.getElementById('hero-theme-label');
+    const heroBtn = document.getElementById('hero-theme-toggle');
+    if (heroIcon) {
+      heroIcon.setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
+      heroIcon.style.color = theme === 'dark' ? '#f59e0b' : '#cbd5e1';
+    }
+    if (heroLabel) {
+      heroLabel.textContent = theme === 'dark' ? 'Switch to Light' : 'Switch to Dark';
+    }
+    if (heroBtn) {
+      heroBtn.title = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    }
+
+    // Update Floating Theme Pill
+    const floatingIcon = document.getElementById('floating-theme-icon');
+    const floatingLabel = document.getElementById('floating-theme-label');
+    const floatingPill = document.getElementById('landing-floating-pill');
+    if (floatingIcon) {
+      floatingIcon.setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
+      floatingIcon.style.color = theme === 'dark' ? '#f59e0b' : '#38bdf8';
+    }
+    if (floatingLabel) {
+      floatingLabel.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+    }
+    if (floatingPill) {
+      floatingPill.title = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    }
+
     // Update Auth View Theme Toggle
     const authIcon = document.getElementById('auth-theme-icon');
     const authLabel = document.getElementById('auth-theme-label');
@@ -1617,7 +1647,7 @@ const CampusLinkApp = {
           <p class="landing-hero-subtitle">
             CAMPUSLINK unifies students, corporate recruiters, and institutional placement cells into a single, high-trust ecosystem for automated skill gap analysis, conflict-free scheduling, and NIRF-grade institutional analytics.
           </p>
-          <div style="display:flex; justify-content:center; gap:16px; flex-wrap:wrap;">
+          <div style="display:flex; justify-content:center; gap:16px; flex-wrap:wrap; align-items:center;">
             <button class="btn btn-primary btn-lg" onclick="CampusLinkApp.navigateTo('#login')" style="padding:14px 28px; font-size:15px;">
               <i data-lucide="log-in" style="width:18px; height:18px;"></i>
               <span>Sign In to Your Portal</span>
@@ -1625,6 +1655,10 @@ const CampusLinkApp = {
             <button class="btn btn-secondary btn-lg" onclick="CampusLinkApp.navigateTo('#register')" style="padding:14px 28px; font-size:15px; background:rgba(255,255,255,0.1); color:white; border-color:rgba(255,255,255,0.3);">
               <i data-lucide="user-plus" style="width:18px; height:18px;"></i>
               <span>New User Registration</span>
+            </button>
+            <button id="hero-theme-toggle" class="btn btn-secondary btn-lg" onclick="CampusLinkApp.toggleTheme()" style="padding:14px 22px; font-size:15px; background:rgba(255,255,255,0.12); color:white; border-color:rgba(255,255,255,0.35); display:inline-flex; align-items:center; gap:8px;" title="Switch between Dark and Light Mode">
+              <i id="hero-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:18px; height:18px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
+              <span id="hero-theme-label">${CampusLinkApp.currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
             </button>
           </div>
         </section>
@@ -1677,36 +1711,54 @@ const CampusLinkApp = {
           </div>
         </div>
 
-        <!-- KEY FEATURES GRID -->
+        <!-- KEY FEATURES GRID (6 BOXES) -->
         <div id="features-section" style="max-width:1200px; margin:0 auto 70px auto; padding:0 24px;">
           <div style="text-align:center; margin-bottom:40px;">
-            <h2 style="font-family:var(--font-heading); font-size:30px; font-weight:800; color:var(--gov-navy-950); margin-bottom:8px;">Engineered for Institutional Scale</h2>
-            <p style="font-size:15px; color:var(--text-muted); max-width:640px; margin:0 auto;">
+            <h2 class="landing-section-title">Engineered for Institutional Scale</h2>
+            <p class="landing-section-subtitle">
               Eliminate placement bottlenecks with automated workflows designed specifically for accredited engineering and management institutions.
             </p>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:20px;">
-            <div class="card">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:20px;">
+            <div class="card landing-feature-card">
               <i data-lucide="cpu" style="width:28px; height:28px; color:var(--gov-navy-600); margin-bottom:14px;"></i>
-              <h4 style="font-size:16px; font-weight:700; color:var(--gov-navy-950); margin-bottom:6px;">Multi-Vector AI Matcher</h4>
-              <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">Scores candidate compatibility across algorithmic tests, academic history, projects, and domain skills with 98% hiring correlation.</p>
+              <h4 class="landing-feature-title">Multi-Vector AI Matcher</h4>
+              <p class="landing-feature-desc">Scores candidate compatibility across algorithmic tests, academic history, projects, and domain skills with 98% hiring correlation.</p>
             </div>
-            <div class="card">
+            <div class="card landing-feature-card">
               <i data-lucide="calendar-check-2" style="width:28px; height:28px; color:#10b981; margin-bottom:14px;"></i>
-              <h4 style="font-size:16px; font-weight:700; color:var(--gov-navy-950); margin-bottom:6px;">Conflict-Free Scheduler</h4>
-              <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">Automated detection and 1-click resolution for simultaneous interview slots, venue capacity caps, and panel collisions.</p>
+              <h4 class="landing-feature-title">Conflict-Free Scheduler</h4>
+              <p class="landing-feature-desc">Automated detection and 1-click resolution for simultaneous interview slots, venue capacity caps, and panel collisions.</p>
             </div>
-            <div class="card">
+            <div class="card landing-feature-card">
               <i data-lucide="trending-up" style="width:28px; height:28px; color:#8b5cf6; margin-bottom:14px;"></i>
-              <h4 style="font-size:16px; font-weight:700; color:var(--gov-navy-950); margin-bottom:6px;">Predictive Risk Engine</h4>
-              <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">Identifies unplaced and at-risk students 6 months prior to graduation, auto-recommending remedial coding bootcamps.</p>
+              <h4 class="landing-feature-title">Predictive Risk Engine</h4>
+              <p class="landing-feature-desc">Identifies unplaced and at-risk students 6 months prior to graduation, auto-recommending remedial coding bootcamps.</p>
             </div>
-            <div class="card" id="compliance-section">
+            <div class="card landing-feature-card" id="compliance-section">
               <i data-lucide="file-check-2" style="width:28px; height:28px; color:#06b6d4; margin-bottom:14px;"></i>
-              <h4 style="font-size:16px; font-weight:700; color:var(--gov-navy-950); margin-bottom:6px;">NAAC & NIRF Compliant</h4>
-              <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">Instant one-click exports for institutional accreditation data tables, CTC distribution, and company rosters.</p>
+              <h4 class="landing-feature-title">NAAC & NIRF Compliant</h4>
+              <p class="landing-feature-desc">Instant one-click exports for institutional accreditation data tables, CTC distribution, and company rosters.</p>
             </div>
+            <div class="card landing-feature-card">
+              <i data-lucide="sparkles" style="width:28px; height:28px; color:#f59e0b; margin-bottom:14px;"></i>
+              <h4 class="landing-feature-title">Real-Time Explainability</h4>
+              <p class="landing-feature-desc">Transparent "Why Matched" and "Why Not Shortlisted" feedback loops empowering candidates with targeted skill remediation.</p>
+            </div>
+            <div class="card landing-feature-card">
+              <i data-lucide="shield-alert" style="width:28px; height:28px; color:#ec4899; margin-bottom:14px;"></i>
+              <h4 class="landing-feature-title">Institutional RBAC & Audit</h4>
+              <p class="landing-feature-desc">Enterprise-grade cryptographic security, tamper-proof audit trails, and strict role-based access for students, recruiters, and deans.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- FLOATING THEME TOGGLE (ALWAYS ACCESSIBLE ANYWHERE ON LANDING PAGE) -->
+        <div id="landing-floating-pill" class="landing-floating-theme-pill" onclick="CampusLinkApp.toggleTheme()" title="Click to toggle Light / Dark Mode">
+          <div class="floating-theme-inner">
+            <i id="floating-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#38bdf8'};"></i>
+            <span id="floating-theme-label">${CampusLinkApp.currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </div>
         </div>
 
