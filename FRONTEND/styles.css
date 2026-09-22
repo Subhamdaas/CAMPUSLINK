@@ -1067,16 +1067,17 @@ footer .landing-footer-copy,
    DARK THEME: GLASSMORPHIC AUTH DESK & LANDING ROLE CARDS
 ------------------------------------------------------------- */
 [data-theme="dark"] .auth-glass-bg {
-  background: linear-gradient(135deg, rgba(3, 7, 18, 0.85) 0%, rgba(13, 21, 39, 0.9) 100%), url('assets/clean_room.jpg') center/cover fixed no-repeat !important;
+  background: linear-gradient(135deg, rgba(3, 7, 18, 0.45) 0%, rgba(13, 21, 39, 0.55) 100%), url('assets/clean_room.jpg') center/cover fixed no-repeat !important;
 }
 
 [data-theme="dark"] .auth-glass-card {
-  background: rgba(17, 24, 39, 0.88) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(13, 21, 39, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
   border-top: 4px solid #38bdf8 !important;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
 }
 
 [data-theme="dark"] .landing-hero {
@@ -2807,17 +2808,67 @@ a {
 .auth-glass-bg {
   min-height: calc(100vh - 120px);
   position: relative;
-  background: linear-gradient(135deg, rgba(7, 21, 38, 0.72) 0%, rgba(11, 37, 69, 0.78) 100%), url('assets/clean_room.jpg') center/cover fixed no-repeat;
+  background: linear-gradient(135deg, rgba(7, 21, 38, 0.35) 0%, rgba(11, 37, 69, 0.45) 100%), url('assets/clean_room.jpg') center/cover fixed no-repeat !important;
   padding: 40px 16px 80px 16px;
 }
 
 .auth-glass-card {
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.92) !important;
-  border: 1px solid rgba(255, 255, 255, 0.7) !important;
-  border-top: 4px solid var(--gov-navy-600) !important;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border-top: 4px solid #2563eb !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Direct Social / SSO Auth Grid */
+.social-auth-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(203, 213, 225, 0.85);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.social-btn:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  border-color: #38bdf8;
+}
+
+[data-theme="dark"] .social-btn {
+  background: rgba(22, 32, 50, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme="dark"] .social-btn:hover {
+  background: rgba(30, 45, 72, 0.88) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5) !important;
 }
 
 .auth-top-bar {
@@ -2885,10 +2936,12 @@ a {
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 24px;
-  background: #f8fafc;
+  background: rgba(241, 245, 249, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   padding: 6px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(203, 213, 225, 0.6);
 }
 
 .auth-role-tab {
@@ -2983,11 +3036,13 @@ a {
   padding: 11px 14px;
   font-size: 14px;
   font-family: var(--font-base);
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid rgba(203, 213, 225, 0.8);
   border-radius: var(--radius-sm);
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: var(--text-main);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .auth-form-input:focus {
@@ -3090,8 +3145,10 @@ a {
 .auth-demo-sandbox {
   margin-top: 24px;
   padding: 16px;
-  background: #f8fafc;
-  border: 1px dashed var(--border-color);
+  background: rgba(248, 250, 252, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px dashed rgba(203, 213, 225, 0.8);
   border-radius: var(--radius-md);
 }
 
@@ -3118,8 +3175,10 @@ a {
   font-size: 12px;
   font-weight: 600;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background: #ffffff;
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   color: var(--text-body);
   cursor: pointer;
   text-align: center;

@@ -374,6 +374,14 @@ function initSocialLogin() {
       window.location.href = 'index.html';
     }, 900);
   });
+
+  const microsoftBtn = document.getElementById('microsoftLoginBtn');
+  microsoftBtn?.addEventListener('click', () => {
+    showAuthToast('Connecting with Microsoft Entra ID / Office 365...', 'info');
+    setTimeout(() => {
+      window.location.href = 'index.html';
+    }, 900);
+  });
 }
 
 function showAuthToast(message, type = 'info') {
