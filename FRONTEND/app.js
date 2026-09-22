@@ -1721,14 +1721,14 @@ const CampusLinkApp = {
         </div>
 
         <!-- FOOTER -->
-        <footer style="background:#071526; color:#94a3b8; padding:36px 32px; border-top:1px solid rgba(255,255,255,0.08);">
+        <footer class="landing-footer" style="background:#071526; color:#94a3b8; padding:36px 32px; border-top:1px solid rgba(255,255,255,0.08);">
           <div style="max-width:1200px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
             <div style="display:flex; align-items:center; gap:10px;">
               <img src="assets/campuslink_logo.png" style="width:26px; height:26px; border-radius:4px; background:white; padding:2px;" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
-              <span style="font-weight:800; font-size:15px; color:#ffffff;">CAMPUSLINK</span>
-              <span style="font-size:12px; color:#64748b;">• Institutional Placement & Accreditation System</span>
+              <span class="landing-footer-brand" style="font-weight:800; font-size:15px; color:#ffffff;">CAMPUSLINK</span>
+              <span class="landing-footer-sub" style="font-size:12px; color:#94a3b8;">• Institutional Placement & Accreditation System</span>
             </div>
-            <div style="font-size:12.5px;">
+            <div class="landing-footer-copy" style="font-size:12.5px; color:#94a3b8;">
               &copy; 2026 CAMPUSLINK. All Rights Reserved. Built for Tier-1 Institutions.
             </div>
           </div>
@@ -1809,7 +1809,7 @@ const CampusLinkApp = {
 
         <!-- AUTH TOP BAR -->
         <div class="auth-top-bar">
-          <a href="#landing" style="display:flex; align-items:center; gap:8px; color:#cbd5e1; font-size:13.5px; font-weight:600;">
+          <a href="#landing" class="auth-back-link" style="display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600;">
             <i data-lucide="arrow-left" style="width:16px; height:16px;"></i>
             <span>Back to Public Portal</span>
           </a>
@@ -1821,7 +1821,7 @@ const CampusLinkApp = {
             </button>
             <div style="display:flex; align-items:center; gap:8px;">
               <img src="assets/campuslink_logo.png" style="width:24px; height:24px; border-radius:4px; background:white; padding:2px;" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
-              <span style="font-weight:800; font-size:14px; color:#ffffff;">CAMPUSLINK AUTH DESK</span>
+              <span class="auth-brand-label" style="font-weight:800; font-size:14px; color:#ffffff;">CAMPUSLINK AUTH DESK</span>
             </div>
           </div>
         </div>

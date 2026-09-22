@@ -889,3 +889,95 @@
   border-color: #38bdf8 !important;
   color: #38bdf8 !important;
 }
+
+[data-theme="dark"] .auth-main-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .auth-sub-title {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .social-btn {
+  background-color: #162032 !important;
+  border-color: #263855 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .social-btn:hover {
+  background-color: #1f2d45 !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .auth-tabs-toggle {
+  background-color: #162032 !important;
+  border-color: #263855 !important;
+}
+
+[data-theme="dark"] .auth-tab-btn {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .auth-tab-btn.active {
+  background-color: #1f2d45 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .three-bar-toggle-btn {
+  background-color: #162032 !important;
+  border-color: #263855 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .three-bar-toggle-btn:hover {
+  background-color: #1f2d45 !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .three-bar-toggle-btn .bar {
+  background-color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .auth-features-mega-panel {
+  background-color: #0d1527 !important;
+  border-color: #22314e !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .features-preview-item {
+  background-color: #162032 !important;
+  border-color: #263855 !important;
+}
+
+[data-theme="dark"] .feature-preview-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .feature-preview-desc {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .mega-panel-footer {
+  background-color: #090d16 !important;
+  border-top-color: #22314e !important;
+}
+
+[data-theme="dark"] .role-card-select {
+  background-color: #162032 !important;
+  border-color: #263855 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .role-card-select:hover {
+  background-color: #1f2d45 !important;
+  border-color: #38bdf8 !important;
+}
+
+[data-theme="dark"] .role-card-select.selected {
+  background-color: #1e3a8a !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+}

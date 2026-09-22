@@ -104,12 +104,12 @@
   --brand-blue: #38bdf8;
   --brand-blue-border: #1d4ed8;
 
-  /* Institutional Dark Typography & Accent Tokens (Inverted from dark light-mode colors to bright white/slate) */
-  --gov-navy-950: #f8fafc;
-  --gov-navy-900: #f1f5f9;
-  --gov-navy-850: #e2e8f0;
-  --gov-navy-800: #cbd5e1;
-  --gov-navy-700: #93c5fd;
+  /* Institutional Dark Surfaces & Navy Foundations (Preserves deep obsidian/navy backgrounds) */
+  --gov-navy-950: #030712;
+  --gov-navy-900: #0b1329;
+  --gov-navy-850: #0f1c3f;
+  --gov-navy-800: #1a2947;
+  --gov-navy-700: #2563eb;
   --gov-navy-600: #38bdf8;
 
   /* Institutional Dark Surfaces (Dedicated for backgrounds only) */
@@ -842,6 +842,135 @@
 /* -------------------------------------------------------------
    DARK THEME: AUTH INTERFACE IN MAIN SHELL
 ------------------------------------------------------------- */
+.auth-top-bar {
+  background: #071526 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.auth-top-bar a,
+.auth-top-bar a span,
+.auth-top-bar span {
+  color: #cbd5e1 !important;
+}
+
+.auth-top-bar a:hover {
+  color: #38bdf8 !important;
+}
+
+.auth-top-bar .auth-brand-label {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .auth-top-bar {
+  background: #030712 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-theme="dark"] .auth-top-bar a,
+[data-theme="dark"] .auth-top-bar a span,
+[data-theme="dark"] .auth-top-bar span {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .auth-top-bar a:hover {
+  color: #38bdf8 !important;
+}
+
+[data-theme="dark"] .auth-top-bar .auth-brand-label {
+  color: #ffffff !important;
+}
+
+/* -------------------------------------------------------------
+   LANDING & GLOBAL FOOTER (DARK & LIGHT PALETTES)
+------------------------------------------------------------- */
+.landing-footer,
+footer.landing-footer,
+footer {
+  background: #071526 !important;
+  color: #94a3b8 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .landing-footer,
+[data-theme="dark"] footer.landing-footer,
+[data-theme="dark"] footer {
+  background: #030712 !important;
+  color: #94a3b8 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.landing-footer .landing-footer-brand,
+[data-theme="dark"] .landing-footer .landing-footer-brand,
+footer .landing-footer-brand,
+[data-theme="dark"] footer .landing-footer-brand {
+  color: #ffffff !important;
+}
+
+.landing-footer .landing-footer-sub,
+[data-theme="dark"] .landing-footer .landing-footer-sub,
+footer .landing-footer-sub,
+[data-theme="dark"] footer .landing-footer-sub {
+  color: #94a3b8 !important;
+}
+
+.landing-footer .landing-footer-copy,
+[data-theme="dark"] .landing-footer .landing-footer-copy,
+footer .landing-footer-copy,
+[data-theme="dark"] footer .landing-footer-copy {
+  color: #94a3b8 !important;
+}
+
+/* Universal High-Contrast Typography & Headings inside Portal Pages */
+[data-theme="dark"] .card-title,
+[data-theme="dark"] .page-title,
+[data-theme="dark"] .section-title,
+[data-theme="dark"] .stat-value,
+[data-theme="dark"] .table-card-title,
+[data-theme="dark"] .modal-title,
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] strong,
+[data-theme="dark"] th {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .auth-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .auth-subtitle {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .auth-form-label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .captcha-visual-badge {
+  background: #162032 !important;
+  border-color: #263855 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .captcha-refresh-btn {
+  background: #1e2a3f !important;
+  border-color: #2d4163 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .captcha-refresh-btn:hover {
+  background: #2563eb !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
 [data-theme="dark"] .auth-page-wrapper {
   background-color: #090d16;
 }
@@ -850,6 +979,7 @@
   background: #111827 !important;
   border-color: #22314e !important;
   border-top-color: #38bdf8 !important;
+  color: #f8fafc !important;
 }
 
 [data-theme="dark"] .auth-badge-official {
@@ -2691,8 +2821,8 @@ a {
 }
 
 .auth-top-bar {
-  background: var(--gov-navy-950);
-  border-bottom: 1px solid #1e293b;
+  background: #071526 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
   padding: 14px 32px;
   display: flex;
   align-items: center;
