@@ -89,36 +89,6 @@ const CampusLinkApp = {
       landingBtn.title = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
     }
 
-    // Update Landing Hero Theme Toggle
-    const heroIcon = document.getElementById('hero-theme-icon');
-    const heroLabel = document.getElementById('hero-theme-label');
-    const heroBtn = document.getElementById('hero-theme-toggle');
-    if (heroIcon) {
-      heroIcon.setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
-      heroIcon.style.color = theme === 'dark' ? '#f59e0b' : '#cbd5e1';
-    }
-    if (heroLabel) {
-      heroLabel.textContent = theme === 'dark' ? 'Switch to Light' : 'Switch to Dark';
-    }
-    if (heroBtn) {
-      heroBtn.title = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-    }
-
-    // Update Floating Theme Pill
-    const floatingIcon = document.getElementById('floating-theme-icon');
-    const floatingLabel = document.getElementById('floating-theme-label');
-    const floatingPill = document.getElementById('landing-floating-pill');
-    if (floatingIcon) {
-      floatingIcon.setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
-      floatingIcon.style.color = theme === 'dark' ? '#f59e0b' : '#38bdf8';
-    }
-    if (floatingLabel) {
-      floatingLabel.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
-    }
-    if (floatingPill) {
-      floatingPill.title = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-    }
-
     // Update Auth View Theme Toggle
     const authIcon = document.getElementById('auth-theme-icon');
     const authLabel = document.getElementById('auth-theme-label');
@@ -1656,10 +1626,6 @@ const CampusLinkApp = {
               <i data-lucide="user-plus" style="width:18px; height:18px;"></i>
               <span>New User Registration</span>
             </button>
-            <button id="hero-theme-toggle" class="btn btn-secondary btn-lg" onclick="CampusLinkApp.toggleTheme()" style="padding:14px 22px; font-size:15px; background:rgba(255,255,255,0.12); color:white; border-color:rgba(255,255,255,0.35); display:inline-flex; align-items:center; gap:8px;" title="Switch between Dark and Light Mode">
-              <i id="hero-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:18px; height:18px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
-              <span id="hero-theme-label">${CampusLinkApp.currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-            </button>
           </div>
         </section>
 
@@ -1754,16 +1720,8 @@ const CampusLinkApp = {
           </div>
         </div>
 
-        <!-- FLOATING THEME TOGGLE (ALWAYS ACCESSIBLE ANYWHERE ON LANDING PAGE) -->
-        <div id="landing-floating-pill" class="landing-floating-theme-pill" onclick="CampusLinkApp.toggleTheme()" title="Click to toggle Light / Dark Mode">
-          <div class="floating-theme-inner">
-            <i id="floating-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#38bdf8'};"></i>
-            <span id="floating-theme-label">${CampusLinkApp.currentTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-          </div>
-        </div>
-
         <!-- FOOTER -->
-        <footer style="background:var(--gov-navy-950); color:#94a3b8; padding:36px 32px; border-top:1px solid rgba(255,255,255,0.08);">
+        <footer style="background:#071526; color:#94a3b8; padding:36px 32px; border-top:1px solid rgba(255,255,255,0.08);">
           <div style="max-width:1200px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
             <div style="display:flex; align-items:center; gap:10px;">
               <img src="assets/campuslink_logo.png" style="width:26px; height:26px; border-radius:4px; background:white; padding:2px;" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
