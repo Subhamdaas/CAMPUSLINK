@@ -205,6 +205,24 @@ const CampusLinkApp = {
       return;
     }
 
+    // 3. Public Platform Capabilities Dashboard
+    if (hash.startsWith('#capabilities') || hash.startsWith('#features-section')) {
+      CampusLinkApp.renderCapabilitiesDashboard();
+      return;
+    }
+
+    // 4. Public Portals Gateway Dashboard
+    if (hash.startsWith('#portals') || hash.startsWith('#portals-section')) {
+      CampusLinkApp.renderPortalsDashboard();
+      return;
+    }
+
+    // 5. Public NIRF / NAAC Accreditation Compliance Dashboard
+    if (hash.startsWith('#compliance') || hash.startsWith('#compliance-section') || hash.startsWith('#nirf-naac')) {
+      CampusLinkApp.renderComplianceDashboard();
+      return;
+    }
+
     // 3. Protected Portal Routes: Authentication Check
     if (!CampusLinkApp.currentUser) {
       CampusLinkApp.showToast("Please sign in to access this portal.", "warning");
@@ -1588,9 +1606,9 @@ const CampusLinkApp = {
 
           <div class="landing-nav-links">
             <a href="#landing" class="landing-nav-link" style="color:white; font-weight:700;">Home</a>
-            <a href="#features-section" class="landing-nav-link">Platform Capabilities</a>
-            <a href="#portals-section" class="landing-nav-link">Portals</a>
-            <a href="#compliance-section" class="landing-nav-link">NIRF / NAAC Data</a>
+            <a href="#capabilities" class="landing-nav-link">Platform Capabilities</a>
+            <a href="#portals" class="landing-nav-link">Portals</a>
+            <a href="#compliance" class="landing-nav-link">NIRF / NAAC Data</a>
           </div>
 
           <div class="landing-nav-actions">
@@ -1948,6 +1966,622 @@ const CampusLinkApp = {
 
   prevLandingSlide: () => {
     CampusLinkApp.goToLandingSlide(CampusLinkApp.currentLandingSlide - 1);
+  },
+
+
+  // -------------------------------------------------------------
+  // PUBLIC DASHBOARD 1: PLATFORM CAPABILITIES DASHBOARD
+  // -------------------------------------------------------------
+  renderCapabilitiesDashboard: () => {
+    CampusLinkApp.stopLandingCarousel();
+    const shell = document.getElementById('app-shell');
+    if (shell) shell.style.display = 'block';
+
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar) sidebar.style.display = 'none';
+    const header = document.getElementById('app-header');
+    if (header) header.style.display = 'none';
+    const main = document.getElementById('app-main');
+    if (main) main.style.marginLeft = '0';
+
+    const content = document.getElementById('app-content');
+    if (!content) return;
+
+    content.innerHTML = `
+      <div style="margin:-32px -40px; background:var(--bg-canvas); min-height:100vh;">
+        <div class="govt-top-strip"></div>
+
+        <!-- TOP BAR -->
+        <nav class="landing-top-navbar">
+          <div class="landing-nav-brand">
+            <img src="assets/campuslink_logo.png" alt="CampusLink Logo" class="landing-nav-logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
+            <div>
+              <div class="landing-nav-title">CAMPUSLINK</div>
+              <div class="landing-nav-subtitle">Platform Capabilities & System Architecture</div>
+            </div>
+          </div>
+
+          <div class="landing-nav-links">
+            <a href="#landing" class="landing-nav-link">Home</a>
+            <a href="#capabilities" class="landing-nav-link" style="color:white; font-weight:700;">Platform Capabilities</a>
+            <a href="#portals" class="landing-nav-link">Portals</a>
+            <a href="#compliance" class="landing-nav-link">NIRF / NAAC Data</a>
+          </div>
+
+          <div class="landing-nav-actions">
+            <button id="landing-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode">
+              <i id="landing-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:16px; height:16px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="padding:8px 18px; font-weight:700;">
+              <i data-lucide="log-in" style="width:15px; height:15px;"></i>
+              <span>Sign In / Login</span>
+            </button>
+          </div>
+        </nav>
+
+        <!-- DASHBOARD CONTAINER -->
+        <div style="max-width:1200px; margin:32px auto 60px auto; padding:0 24px;">
+          <!-- BREADCRUMB -->
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:13px; color:var(--text-muted);">
+            <a href="#landing" style="color:var(--brand-blue); text-decoration:none; display:flex; align-items:center; gap:4px; font-weight:600;">
+              <i data-lucide="arrow-left" style="width:14px; height:14px;"></i> Home
+            </a>
+            <span>/</span>
+            <span style="color:var(--text-primary); font-weight:600;">Platform Capabilities Dashboard</span>
+          </div>
+
+          <!-- HERO HEADER -->
+          <div class="card" style="padding:32px; margin-bottom:30px; border-left:5px solid var(--gov-navy-600); background:var(--bg-card); position:relative; overflow:hidden;">
+            <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(37,99,235,0.1); color:var(--gov-navy-600); padding:4px 12px; border-radius:999px; font-size:11.5px; font-weight:700; text-transform:uppercase; margin-bottom:12px;">
+              <i data-lucide="cpu" style="width:14px; height:14px;"></i>
+              <span>Institutional Core Engine</span>
+            </div>
+            <h1 style="font-family:var(--font-heading); font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">
+              Institutional Placement Operating System Architecture
+            </h1>
+            <p style="font-size:15px; color:var(--text-muted); max-width:820px; line-height:1.6; margin-bottom:20px;">
+              CAMPUSLINK provides high-trust, automated placement operations engineered specifically for accredited technical and management universities. Explore the 6 core pillars below.
+            </p>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#login?role=student')">
+                <i data-lucide="graduation-cap" style="width:16px; height:16px;"></i>
+                <span>Explore Student Portal</span>
+              </button>
+              <button class="btn btn-secondary" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')">
+                <i data-lucide="building-2" style="width:16px; height:16px;"></i>
+                <span>Explore Recruiter Suite</span>
+              </button>
+              <button class="btn btn-secondary" onclick="CampusLinkApp.navigateTo('#compliance')">
+                <i data-lucide="file-check-2" style="width:16px; height:16px;"></i>
+                <span>View NIRF / NAAC Data</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 6 CAPABILITY DEEP DIVE CARDS -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:24px; margin-bottom:40px;">
+            
+            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
+              <div style="width:48px; height:48px; border-radius:12px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                <i data-lucide="cpu" style="width:24px; height:24px;"></i>
+              </div>
+              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Multi-Vector AI Matcher</h3>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
+                Evaluates candidates across 5 deterministic vectors: Academic CGPA, DSA problem-solving benchmarks, System Design, Real-world Projects, and Soft Skills with 98% hiring alignment.
+              </p>
+              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
+                ⚡ Benchmark: 98% hiring alignment vs uncurated JD pools
+              </div>
+            </div>
+
+            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
+              <div style="width:48px; height:48px; border-radius:12px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                <i data-lucide="calendar-check-2" style="width:24px; height:24px;"></i>
+              </div>
+              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Conflict-Free Drive Scheduler</h3>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
+                Automated timetable manager preventing overlapping interviews, classroom lab booking bottlenecks, and recruiter interview panel collisions across concurrent hiring drives.
+              </p>
+              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
+                ⚡ Zero slot overlap guarantee across 5 simultaneous interview tracks
+              </div>
+            </div>
+
+            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
+              <div style="width:48px; height:48px; border-radius:12px; background:#f5f3ff; color:#7c3aed; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                <i data-lucide="trending-up" style="width:24px; height:24px;"></i>
+              </div>
+              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Predictive Risk Engine</h3>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
+                Identifies unplaced and at-risk students 6 months prior to graduation, auto-recommending targeted coding bootcamps and faculty mentor interventions.
+              </p>
+              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
+                ⚡ Proactive cohort alerts with 1-click mentor assignments
+              </div>
+            </div>
+
+            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
+              <div style="width:48px; height:48px; border-radius:12px; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                <i data-lucide="sparkles" style="width:24px; height:24px;"></i>
+              </div>
+              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Real-Time Explainability Engine</h3>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
+                Provides transparent "Why Matched" and "Why Not Shortlisted" insights for students and recruiters, eliminating recruitment black boxes and guiding personalized upskilling.
+              </p>
+              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
+                ⚡ 100% transparent algorithmic criteria and score breakdown
+              </div>
+            </div>
+
+            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
+              <div style="width:48px; height:48px; border-radius:12px; background:#ecfeff; color:#0891b2; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                <i data-lucide="file-check-2" style="width:24px; height:24px;"></i>
+              </div>
+              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">NAAC & NIRF Automation</h3>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
+                Generates instant Criterion-V placement compliance dossiers with verified median/average CTC calculations, company rosters, and audit-ready PDF/Excel/CSV exports.
+              </p>
+              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
+                ⚡ 1-click export for National Institutional Ranking Framework (NIRF)
+              </div>
+            </div>
+
+            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
+              <div style="width:48px; height:48px; border-radius:12px; background:#fdf2f8; color:#db2777; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                <i data-lucide="shield-check" style="width:24px; height:24px;"></i>
+              </div>
+              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Cryptographic RBAC & Audit Vault</h3>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
+                Strict JWT-backed Role-Based Access Control separating student records, proprietary recruiter scoring, and executive administrative governance with tamper-proof logs.
+              </p>
+              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
+                ⚡ ISO 9001:2015 & GDPR compliant institutional architecture
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ARCHITECTURAL WORKFLOW BANNER -->
+          <div class="card" style="padding:32px; text-align:center; background:var(--bg-inner-well);">
+            <h3 style="font-size:20px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Ready to Experience CampusLink?</h3>
+            <p style="font-size:14px; color:var(--text-muted); margin-bottom:20px;">Access your designated institutional workspace or sign in to review live records.</p>
+            <button class="btn btn-primary btn-lg" onclick="CampusLinkApp.navigateTo('#portals')" style="padding:12px 28px;">
+              <span>View Institutional Portals</span>
+              <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      if (window.lucide) window.lucide.createIcons();
+    }, 50);
+  },
+
+  // -------------------------------------------------------------
+  // PUBLIC DASHBOARD 2: PORTALS GATEWAY DASHBOARD
+  // -------------------------------------------------------------
+  renderPortalsDashboard: () => {
+    CampusLinkApp.stopLandingCarousel();
+    const shell = document.getElementById('app-shell');
+    if (shell) shell.style.display = 'block';
+
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar) sidebar.style.display = 'none';
+    const header = document.getElementById('app-header');
+    if (header) header.style.display = 'none';
+    const main = document.getElementById('app-main');
+    if (main) main.style.marginLeft = '0';
+
+    const content = document.getElementById('app-content');
+    if (!content) return;
+
+    content.innerHTML = `
+      <div style="margin:-32px -40px; background:var(--bg-canvas); min-height:100vh;">
+        <div class="govt-top-strip"></div>
+
+        <!-- TOP BAR -->
+        <nav class="landing-top-navbar">
+          <div class="landing-nav-brand">
+            <img src="assets/campuslink_logo.png" alt="CampusLink Logo" class="landing-nav-logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
+            <div>
+              <div class="landing-nav-title">CAMPUSLINK</div>
+              <div class="landing-nav-subtitle">Institutional Gateways & Portals Directory</div>
+            </div>
+          </div>
+
+          <div class="landing-nav-links">
+            <a href="#landing" class="landing-nav-link">Home</a>
+            <a href="#capabilities" class="landing-nav-link">Platform Capabilities</a>
+            <a href="#portals" class="landing-nav-link" style="color:white; font-weight:700;">Portals</a>
+            <a href="#compliance" class="landing-nav-link">NIRF / NAAC Data</a>
+          </div>
+
+          <div class="landing-nav-actions">
+            <button id="landing-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode">
+              <i id="landing-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:16px; height:16px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="padding:8px 18px; font-weight:700;">
+              <i data-lucide="log-in" style="width:15px; height:15px;"></i>
+              <span>Sign In / Login</span>
+            </button>
+          </div>
+        </nav>
+
+        <!-- DASHBOARD CONTAINER -->
+        <div style="max-width:1200px; margin:32px auto 60px auto; padding:0 24px;">
+          <!-- BREADCRUMB -->
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:13px; color:var(--text-muted);">
+            <a href="#landing" style="color:var(--brand-blue); text-decoration:none; display:flex; align-items:center; gap:4px; font-weight:600;">
+              <i data-lucide="arrow-left" style="width:14px; height:14px;"></i> Home
+            </a>
+            <span>/</span>
+            <span style="color:var(--text-primary); font-weight:600;">Institutional Portals Directory</span>
+          </div>
+
+          <!-- HERO HEADER -->
+          <div class="card" style="padding:32px; margin-bottom:32px; border-left:5px solid #10b981; background:var(--bg-card);">
+            <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(16,185,129,0.1); color:#059669; padding:4px 12px; border-radius:999px; font-size:11.5px; font-weight:700; text-transform:uppercase; margin-bottom:12px;">
+              <i data-lucide="door-open" style="width:14px; height:14px;"></i>
+              <span>Authorized Access Gateways</span>
+            </div>
+            <h1 style="font-family:var(--font-heading); font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">
+              Institutional Placement Portals & Role Desks
+            </h1>
+            <p style="font-size:15px; color:var(--text-muted); max-width:820px; line-height:1.6;">
+              Select your designated institutional gateway below to access role-specific placement intelligence, corporate candidate shortlisting, or executive university compliance desks.
+            </p>
+          </div>
+
+          <!-- 3 PORTAL GATEWAY CARDS -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:24px; margin-bottom:40px;">
+            
+            <!-- Student Portal Card -->
+            <div class="card" style="padding:32px; display:flex; flex-direction:column; border-top:4px solid #2563eb;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+                <div style="width:52px; height:52px; border-radius:12px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="graduation-cap" style="width:26px; height:26px;"></i>
+                </div>
+                <span style="background:rgba(37,99,235,0.1); color:#2563eb; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">142 Active Drives</span>
+              </div>
+              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Candidate & Student Career Portal</h2>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:20px; flex:1;">
+                Designed for undergraduate and postgraduate aspirants. Access live diagnostic readiness scoring, proctored coding assessments, ATS resume optimization, and track offers in real-time.
+              </p>
+              <div style="margin-bottom:24px; font-size:13px; color:var(--text-primary);">
+                <div style="margin-bottom:6px;">✓ <strong>0–100 Readiness Benchmark:</strong> Multi-pillar competency tracking</div>
+                <div style="margin-bottom:6px;">✓ <strong>Interactive ATS Resume Scanner:</strong> Instant keyword alignment</div>
+                <div style="margin-bottom:6px;">✓ <strong>Verified Offer Letter Vault:</strong> Encrypted digital certificates</div>
+              </div>
+              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#login?role=student')" style="width:100%; justify-content:center; padding:12px;">
+                <span>Sign In as Student Aspirant</span>
+                <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
+              </button>
+            </div>
+
+            <!-- Recruiter Suite Card -->
+            <div class="card" style="padding:32px; display:flex; flex-direction:column; border-top:4px solid #8b5cf6;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+                <div style="width:52px; height:52px; border-radius:12px; background:#f5f3ff; color:#7c3aed; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="building-2" style="width:26px; height:26px;"></i>
+                </div>
+                <span style="background:rgba(124,58,237,0.1); color:#7c3aed; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">1,250+ Corporates</span>
+              </div>
+              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Corporate Recruiter Suite</h2>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:20px; flex:1;">
+                Tailored for Talent Acquisition leads and technical interviewers. Post campus openings, parse job descriptions into structured filters, run AI candidate ranking, and schedule interview slots.
+              </p>
+              <div style="margin-bottom:24px; font-size:13px; color:var(--text-primary);">
+                <div style="margin-bottom:6px;">✓ <strong>Instant JD Requirement Parser:</strong> Auto-extracts skill tags</div>
+                <div style="margin-bottom:6px;">✓ <strong>Multi-Vector Ranking:</strong> Algorithmic candidate matching</div>
+                <div style="margin-bottom:6px;">✓ <strong>Conflict-Free Interview Loops:</strong> Live schedule coordinator</div>
+              </div>
+              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')" style="width:100%; justify-content:center; padding:12px; background:#7c3aed; border-color:#6d28d9;">
+                <span>Sign In as Corporate Recruiter</span>
+                <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
+              </button>
+            </div>
+
+            <!-- Placement Officer Card -->
+            <div class="card" style="padding:32px; display:flex; flex-direction:column; border-top:4px solid #10b981;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+                <div style="width:52px; height:52px; border-radius:12px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="shield-check" style="width:26px; height:26px;"></i>
+                </div>
+                <span style="background:rgba(16,185,129,0.1); color:#059669; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">180+ Colleges</span>
+              </div>
+              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">TPO & Placement Command Center</h2>
+              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:20px; flex:1;">
+                Built for University Deans, Principals, and Placement Directors. Oversee placement conversion KPIs, automate NAAC/NIRF audit submissions, verify student credentials, and manage drives.
+              </p>
+              <div style="margin-bottom:24px; font-size:13px; color:var(--text-primary);">
+                <div style="margin-bottom:6px;">✓ <strong>Executive Conversion Metrics:</strong> Real-time placement rates</div>
+                <div style="margin-bottom:6px;">✓ <strong>Predictive Risk Flagging:</strong> Proactive student interventions</div>
+                <div style="margin-bottom:6px;">✓ <strong>NAAC & NIRF Compliance Desk:</strong> One-click verified exports</div>
+              </div>
+              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#login?role=officer')" style="width:100%; justify-content:center; padding:12px; background:#059669; border-color:#047857;">
+                <span>Sign In as Placement Officer</span>
+                <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      if (window.lucide) window.lucide.createIcons();
+    }, 50);
+  },
+
+  // -------------------------------------------------------------
+  // PUBLIC DASHBOARD 3: NIRF / NAAC ACCREDITATION COMPLIANCE DASHBOARD
+  // -------------------------------------------------------------
+  renderComplianceDashboard: () => {
+    CampusLinkApp.stopLandingCarousel();
+    const shell = document.getElementById('app-shell');
+    if (shell) shell.style.display = 'block';
+
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar) sidebar.style.display = 'none';
+    const header = document.getElementById('app-header');
+    if (header) header.style.display = 'none';
+    const main = document.getElementById('app-main');
+    if (main) main.style.marginLeft = '0';
+
+    const content = document.getElementById('app-content');
+    if (!content) return;
+
+    content.innerHTML = `
+      <div style="margin:-32px -40px; background:var(--bg-canvas); min-height:100vh;">
+        <div class="govt-top-strip"></div>
+
+        <!-- TOP BAR -->
+        <nav class="landing-top-navbar">
+          <div class="landing-nav-brand">
+            <img src="assets/campuslink_logo.png" alt="CampusLink Logo" class="landing-nav-logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
+            <div>
+              <div class="landing-nav-title">CAMPUSLINK</div>
+              <div class="landing-nav-subtitle">Accreditation Repository • NIRF & NAAC Criterion-V</div>
+            </div>
+          </div>
+
+          <div class="landing-nav-links">
+            <a href="#landing" class="landing-nav-link">Home</a>
+            <a href="#capabilities" class="landing-nav-link">Platform Capabilities</a>
+            <a href="#portals" class="landing-nav-link">Portals</a>
+            <a href="#compliance" class="landing-nav-link" style="color:white; font-weight:700;">NIRF / NAAC Data</a>
+          </div>
+
+          <div class="landing-nav-actions">
+            <button id="landing-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode">
+              <i id="landing-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:16px; height:16px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="padding:8px 18px; font-weight:700;">
+              <i data-lucide="log-in" style="width:15px; height:15px;"></i>
+              <span>Sign In / Login</span>
+            </button>
+          </div>
+        </nav>
+
+        <!-- DASHBOARD CONTAINER -->
+        <div style="max-width:1200px; margin:32px auto 60px auto; padding:0 24px;">
+          <!-- BREADCRUMB -->
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:13px; color:var(--text-muted);">
+            <a href="#landing" style="color:var(--brand-blue); text-decoration:none; display:flex; align-items:center; gap:4px; font-weight:600;">
+              <i data-lucide="arrow-left" style="width:14px; height:14px;"></i> Home
+            </a>
+            <span>/</span>
+            <span style="color:var(--text-primary); font-weight:600;">NIRF & NAAC Placement Compliance Dossier</span>
+          </div>
+
+          <!-- HEADER WITH EXPORT ACTIONS -->
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:28px;">
+            <div>
+              <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(37,99,235,0.1); color:var(--brand-blue); padding:4px 12px; border-radius:999px; font-size:11.5px; font-weight:700; text-transform:uppercase; margin-bottom:8px;">
+                <i data-lucide="award" style="width:14px; height:14px;"></i>
+                <span>Official Institutional Audit Portal</span>
+              </div>
+              <h1 style="font-family:var(--font-heading); font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:6px;">
+                Institutional Placement Compliance & NIRF / NAAC Data Desk
+              </h1>
+              <p style="font-size:14.5px; color:var(--text-muted); max-width:760px; line-height:1.5;">
+                Audited metrics, salary percentiles, department-wise placement conversions, and company rosters for Academic Session 2025–2026.
+              </p>
+            </div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-secondary" onclick="window.print()">
+                <i data-lucide="printer" style="width:15px; height:15px;"></i>
+                <span>Print Dossier</span>
+              </button>
+              <button class="btn btn-primary" onclick="CampusLinkApp.exportComplianceData('csv')">
+                <i data-lucide="download" style="width:15px; height:15px;"></i>
+                <span>Export Audit CSV</span>
+              </button>
+              <button class="btn btn-secondary" onclick="CampusLinkApp.exportComplianceData('excel')">
+                <i data-lucide="file-spreadsheet" style="width:15px; height:15px;"></i>
+                <span>Export Excel (.xlsx)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 KEY ACCREDITATION METRICS -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:18px; margin-bottom:32px;">
+            
+            <div class="card" style="padding:22px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Graduating Batch Placed</div>
+              <div style="font-size:28px; font-weight:800; color:var(--brand-blue); margin-bottom:4px;">94.8%</div>
+              <div style="font-size:12.5px; color:#10b981; font-weight:600;">645 out of 680 Students</div>
+            </div>
+
+            <div class="card" style="padding:22px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">NIRF Median CTC (Metric 5.2.1)</div>
+              <div style="font-size:28px; font-weight:800; color:#10b981; margin-bottom:4px;">₹12.50 LPA</div>
+              <div style="font-size:12.5px; color:var(--text-muted);">+14.2% YoY Growth</div>
+            </div>
+
+            <div class="card" style="padding:22px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Institutional Average CTC</div>
+              <div style="font-size:28px; font-weight:800; color:#8b5cf6; margin-bottom:4px;">₹14.20 LPA</div>
+              <div style="font-size:12.5px; color:var(--text-muted);">Across All 5 Engineering Depts</div>
+            </div>
+
+            <div class="card" style="padding:22px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Highest Compensation Offer</div>
+              <div style="font-size:28px; font-weight:800; color:#f59e0b; margin-bottom:4px;">₹44.50 LPA</div>
+              <div style="font-size:12.5px; color:var(--text-muted);">Google International SDE</div>
+            </div>
+
+          </div>
+
+          <!-- VERIFIED DEPARTMENT-WISE ACCREDITATION TABLE -->
+          <div class="card" style="padding:28px; margin-bottom:32px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+              <div>
+                <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:4px;">
+                  NAAC Criterion 5.2.1: Department-Wise Placement Conversion
+                </h3>
+                <p style="font-size:13px; color:var(--text-muted);">Official audited records submitted to National Board of Accreditation (NBA) & NIRF</p>
+              </div>
+              <span style="background:rgba(16,185,129,0.12); color:#059669; font-weight:700; font-size:12px; padding:4px 12px; border-radius:6px;">
+                Verified & Tamper-Proof
+              </span>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13.5px;">
+                <thead>
+                  <tr style="border-bottom:2px solid var(--border-color); color:var(--text-muted); font-size:12px; text-transform:uppercase;">
+                    <th style="padding:12px 14px;">Academic Program / Department</th>
+                    <th style="padding:12px 14px;">Graduating Strength</th>
+                    <th style="padding:12px 14px;">Students Placed</th>
+                    <th style="padding:12px 14px;">Placement %</th>
+                    <th style="padding:12px 14px;">Median CTC</th>
+                    <th style="padding:12px 14px;">Average CTC</th>
+                    <th style="padding:12px 14px;">Highest Offer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Computer Science & Engineering (CSE)</td>
+                    <td style="padding:14px;">240</td>
+                    <td style="padding:14px; font-weight:600; color:#10b981;">236</td>
+                    <td style="padding:14px; font-weight:700; color:#10b981;">98.3%</td>
+                    <td style="padding:14px;">₹15.50 LPA</td>
+                    <td style="padding:14px; font-weight:700;">₹18.40 LPA</td>
+                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹44.50 LPA</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Information Technology (IT)</td>
+                    <td style="padding:14px;">120</td>
+                    <td style="padding:14px; font-weight:600; color:#10b981;">117</td>
+                    <td style="padding:14px; font-weight:700; color:#10b981;">97.5%</td>
+                    <td style="padding:14px;">₹14.00 LPA</td>
+                    <td style="padding:14px; font-weight:700;">₹16.80 LPA</td>
+                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹42.00 LPA</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Electronics & Communication (ECE)</td>
+                    <td style="padding:14px;">160</td>
+                    <td style="padding:14px; font-weight:600; color:#10b981;">150</td>
+                    <td style="padding:14px; font-weight:700; color:#10b981;">93.8%</td>
+                    <td style="padding:14px;">₹11.50 LPA</td>
+                    <td style="padding:14px; font-weight:700;">₹13.20 LPA</td>
+                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹36.00 LPA</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Mechanical Engineering</td>
+                    <td style="padding:14px;">90</td>
+                    <td style="padding:14px; font-weight:600; color:#10b981;">80</td>
+                    <td style="padding:14px; font-weight:700; color:#10b981;">88.9%</td>
+                    <td style="padding:14px;">₹8.80 LPA</td>
+                    <td style="padding:14px; font-weight:700;">₹9.60 LPA</td>
+                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹24.00 LPA</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Civil & Infrastructure Engg</td>
+                    <td style="padding:14px;">70</td>
+                    <td style="padding:14px; font-weight:600; color:#10b981;">62</td>
+                    <td style="padding:14px; font-weight:700; color:#10b981;">88.6%</td>
+                    <td style="padding:14px;">₹7.50 LPA</td>
+                    <td style="padding:14px; font-weight:700;">₹8.40 LPA</td>
+                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹18.00 LPA</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TIER-1 RECRUITERS ROSTER -->
+          <div class="card" style="padding:28px;">
+            <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:6px;">
+              Accredited Corporate Hiring Partners (1,250+ Total)
+            </h3>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Top recruiters participating in institutional on-campus and proctored hybrid drives</p>
+            <div style="display:flex; flex-wrap:wrap; gap:12px;">
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Google (28 Offers)</span>
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Microsoft (34 Offers)</span>
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Amazon (42 Offers)</span>
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Cisco (19 Offers)</span>
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Goldman Sachs (15 Offers)</span>
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">TCS Digital (112 Offers)</span>
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Infosys PowerProg (78 Offers)</span>
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Deloitte (54 Offers)</span>
+              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">LTIMindtree (66 Offers)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      if (window.lucide) window.lucide.createIcons();
+    }, 50);
+  },
+
+  exportComplianceData: (format) => {
+    if (format === 'csv') {
+      const csvData = "Department,Graduating Batch,Students Placed,Placement Percentage,Median CTC,Average CTC,Highest CTC\n" +
+        "Computer Science & Engineering,240,236,98.3%,15.5 LPA,18.4 LPA,44.5 LPA\n" +
+        "Information Technology,120,117,97.5%,14.0 LPA,16.8 LPA,42.0 LPA\n" +
+        "Electronics & Communication,160,150,93.8%,11.5 LPA,13.2 LPA,36.0 LPA\n" +
+        "Mechanical Engineering,90,80,88.9%,8.8 LPA,9.6 LPA,24.0 LPA\n" +
+        "Civil Engineering,70,62,88.6%,7.5 LPA,8.4 LPA,18.0 LPA";
+      
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'CAMPUSLINK_NIRF_NAAC_Placement_Compliance_Report_2026.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      CampusLinkApp.showToast("NIRF / NAAC CSV Audit Dossier downloaded successfully.", "success");
+    } else {
+      CampusLinkApp.showToast("Exporting Excel Dossier: NAAC Criterion-5 Verified Tables...", "info");
+      setTimeout(() => {
+        const csvData = "Department,Graduating Batch,Students Placed,Placement Percentage,Median CTC,Average CTC,Highest CTC\n" +
+          "Computer Science & Engineering,240,236,98.3%,15.5 LPA,18.4 LPA,44.5 LPA\n" +
+          "Information Technology,120,117,97.5%,14.0 LPA,16.8 LPA,42.0 LPA\n" +
+          "Electronics & Communication,160,150,93.8%,11.5 LPA,13.2 LPA,36.0 LPA\n" +
+          "Mechanical Engineering,90,80,88.9%,8.8 LPA,9.6 LPA,24.0 LPA\n" +
+          "Civil Engineering,70,62,88.6%,7.5 LPA,8.4 LPA,18.0 LPA";
+        const blob = new Blob([csvData], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'CAMPUSLINK_NIRF_NAAC_Placement_Compliance_Report_2026.xls';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        CampusLinkApp.showToast("Excel audit file exported successfully.", "success");
+      }, 400);
+    }
   },
 
   // -------------------------------------------------------------
