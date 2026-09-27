@@ -23,6 +23,7 @@ const CampusLinkApp = {
 
     // 1. Initialize user from storage if present
     CampusLinkApp.currentUser = CampusLinkStore.getCurrentUser();
+    CampusLinkApp.stopLandingCarousel();
     if (CampusLinkApp.currentUser) {
       CampusLinkApp.activeRole = CampusLinkApp.currentUser.role;
       CampusLinkStore.setRole(CampusLinkApp.currentUser.role);
@@ -392,6 +393,7 @@ const CampusLinkApp = {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => {
       if (window.lucide) window.lucide.createIcons();
+      CampusLinkApp.initLandingCarousel();
     }, 50);
 
     // Update active state in sidebar navigation
@@ -1607,73 +1609,213 @@ const CampusLinkApp = {
           </div>
         </nav>
 
-        <!-- HERO SECTION -->
-        <section class="landing-hero">
-          <div class="landing-hero-tag">
-            <i data-lucide="shield-check" style="width:15px; height:15px;"></i>
-            <span>Institutional Placement Operating System</span>
+        <!-- OFFICIAL LIVE GOVERNMENT / INSTITUTIONAL BULLETIN STRIP -->
+        <div class="govt-bulletin-container">
+          <div class="govt-bulletin-label">
+            <span class="govt-bulletin-pulse"></span>
+            <i data-lucide="megaphone" style="width:14px; height:14px;"></i>
+            <span>OFFICIAL NOTICES</span>
           </div>
-          <h1 class="landing-hero-title">Campus to Corporate, Powered by Unified AI</h1>
-          <p class="landing-hero-subtitle">
-            CAMPUSLINK unifies students, corporate recruiters, and institutional placement cells into a single, high-trust ecosystem for automated skill gap analysis, conflict-free scheduling, and NIRF-grade institutional analytics.
-          </p>
-          <div style="display:flex; justify-content:center; gap:16px; flex-wrap:wrap; align-items:center;">
-            <button class="btn btn-primary btn-lg" onclick="CampusLinkApp.navigateTo('#login')" style="padding:14px 28px; font-size:15px;">
-              <i data-lucide="log-in" style="width:18px; height:18px;"></i>
-              <span>Sign In to Your Portal</span>
-            </button>
-            <button class="btn btn-secondary btn-lg" onclick="CampusLinkApp.navigateTo('#register')" style="padding:14px 28px; font-size:15px; background:rgba(255,255,255,0.1); color:white; border-color:rgba(255,255,255,0.3);">
-              <i data-lucide="user-plus" style="width:18px; height:18px;"></i>
-              <span>New User Registration</span>
-            </button>
-          </div>
-        </section>
-
-        <!-- 3 ROLE GATEWAY CARDS -->
-        <div class="landing-role-cards" id="portals-section">
-          <!-- Student Card -->
-          <div class="role-entry-card role-card-student">
-            <div class="role-card-icon student">
-              <i data-lucide="graduation-cap" style="width:24px; height:24px;"></i>
+          <div class="govt-bulletin-ticker">
+            <div class="govt-bulletin-content">
+              <span>🔴 <strong>LATEST:</strong> Phase-1 Centralized Campus Placement 2026-27 Registration is Live for all Accredited Institutions</span>
+              <span class="bulletin-separator">•</span>
+              <span>🎓 <strong>STUDENT DESK:</strong> Proctored Technical Assessments & ATS Resume Scanner active for registered batches</span>
+              <span class="bulletin-separator">•</span>
+              <span>🏢 <strong>CORPORATE RECRUITMENT:</strong> 1,250+ Verified Corporate Partners Onboarded • Schedule conflict-free campus test & interview slots</span>
+              <span class="bulletin-separator">•</span>
+              <span>🏛️ <strong>ACCREDITATION DESK:</strong> Institutional NIRF & NAAC Criterion-V compliance automated tables ready for download</span>
             </div>
-            <h3 class="role-card-title">Student Career Portal</h3>
-            <p class="role-card-desc">
-              Access 0–100 Readiness scores, interactive skill gap visualizations, AI ATS resume audits, Tier-1 job matching, and multi-stage application tracking.
-            </p>
-            <button class="btn btn-role-student" onclick="CampusLinkApp.navigateTo('#login?role=student')">
-              <span>Sign In as Student</span>
-              <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
-            </button>
           </div>
-
-          <!-- Recruiter Card -->
-          <div class="role-entry-card role-card-recruiter">
-            <div class="role-card-icon recruiter">
-              <i data-lucide="building-2" style="width:24px; height:24px;"></i>
-            </div>
-            <h3 class="role-card-title">Corporate Recruiter Suite</h3>
-            <p class="role-card-desc">
-              AI requirement extraction from raw JDs, multi-vector candidate ranking, "Why Not Shortlisted" explainability engine, and conflict-free interview loops.
-            </p>
-            <button class="btn btn-role-recruiter" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')">
-              <span>Sign In as Recruiter</span>
-              <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
-            </button>
+          <div class="govt-bulletin-date">
+            <i data-lucide="calendar" style="width:13px; height:13px;"></i>
+            <span>Session 2026–27</span>
           </div>
+        </div>
 
-          <!-- Officer Card -->
-          <div class="role-entry-card role-card-officer">
-            <div class="role-card-icon officer">
-              <i data-lucide="shield-check" style="width:24px; height:24px;"></i>
+        <!-- DYNAMIC ANIMATED HERO SHOWCASE WITH REAL PHOTOGRAPHY (CAROUSEL) -->
+        <div class="govt-showcase-wrapper" id="portals-section">
+          <div class="govt-carousel" id="govtLandingCarousel" onmouseenter="CampusLinkApp.pauseLandingCarousel()" onmouseleave="CampusLinkApp.resumeLandingCarousel()">
+            
+            <!-- Slide 1: Campus Placement Drive -->
+            <div class="govt-carousel-slide active" data-slide-index="0">
+              <img src="assets/banner_placement_drive.jpg" alt="National Campus Placement Drive" class="govt-slide-img">
+              <div class="govt-slide-gradient"></div>
+              <div class="govt-slide-content">
+                <div class="govt-slide-badge">
+                  <i data-lucide="award" style="width:14px; height:14px;"></i>
+                  <span>National Institutional Placement Initiative 2026</span>
+                </div>
+                <h2 class="govt-slide-title">Campus to Corporate, Engineered for National Excellence</h2>
+                <p class="govt-slide-desc">
+                  Connecting over 1,250+ top corporate recruiters with verified engineering, management, and technology talent across 180+ accredited universities.
+                </p>
+                <div class="govt-slide-features">
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> UGC & AICTE Aligned</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Verified Digital Offer Letters</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> 94.8% Placement Success</span>
+                </div>
+                <div class="govt-slide-actions">
+                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#login?role=student')">
+                    <i data-lucide="graduation-cap" style="width:18px; height:18px;"></i>
+                    <span>Student Career Desk</span>
+                  </button>
+                  <button class="btn btn-govt-secondary" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')">
+                    <i data-lucide="building-2" style="width:18px; height:18px;"></i>
+                    <span>Corporate Recruiter Desk</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            <h3 class="role-card-title">Placement Command Center</h3>
-            <p class="role-card-desc">
-              Executive placement dashboard with live conversion metrics, predictive AI risk flagging for at-risk cohorts, document verification desks, and NAAC/NIRF audit exports.
-            </p>
-            <button class="btn btn-role-officer" onclick="CampusLinkApp.navigateTo('#login?role=officer')">
-              <span>Sign In as Officer</span>
-              <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
+
+            <!-- Slide 2: Convocation & Institutional Governance -->
+            <div class="govt-carousel-slide" data-slide-index="1">
+              <img src="assets/banner_convocation.jpg" alt="Institutional Convocation & Placement Governance" class="govt-slide-img">
+              <div class="govt-slide-gradient"></div>
+              <div class="govt-slide-content">
+                <div class="govt-slide-badge">
+                  <i data-lucide="shield-check" style="width:14px; height:14px;"></i>
+                  <span>Institutional Accreditation & Placement Governance</span>
+                </div>
+                <h2 class="govt-slide-title">NIRF Benchmark & NAAC Criterion-V Compliance</h2>
+                <p class="govt-slide-desc">
+                  Equipping University Deans and Placement Directors with instant 1-click accreditation audit exports, transparent salary distributions, and tamper-proof verification.
+                </p>
+                <div class="govt-slide-features">
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> 1-Click NIRF Metric Tables</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> NAAC Criterion-5 Ready</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Conflict-Free Drive Scheduler</span>
+                </div>
+                <div class="govt-slide-actions">
+                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#login?role=officer')">
+                    <i data-lucide="shield-check" style="width:18px; height:18px;"></i>
+                    <span>Placement Command Center</span>
+                  </button>
+                  <button class="btn btn-govt-secondary" onclick="CampusLinkApp.navigateTo('#compliance-section')">
+                    <i data-lucide="file-spreadsheet" style="width:18px; height:18px;"></i>
+                    <span>View Accreditation Data</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide 3: Tech Innovation & Coding Labs -->
+            <div class="govt-carousel-slide" data-slide-index="2">
+              <img src="assets/banner_innovation_lab.jpg" alt="Proctored Assessments & Hackathons" class="govt-slide-img">
+              <div class="govt-slide-gradient"></div>
+              <div class="govt-slide-content">
+                <div class="govt-slide-badge">
+                  <i data-lucide="cpu" style="width:14px; height:14px;"></i>
+                  <span>Industry Skill Alignment & Proctored Labs</span>
+                </div>
+                <h2 class="govt-slide-title">Automated Skill Gap Analysis & Proctored Evaluations</h2>
+                <p class="govt-slide-desc">
+                  Multi-pillar benchmarking across DSA algorithms, system design, and communication with instant ATS resume feedback and personalized learning bootcamps.
+                </p>
+                <div class="govt-slide-features">
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> 0–100 Readiness Benchmark</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> AI ATS Resume Score</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Highest CTC ₹44.5 LPA</span>
+                </div>
+                <div class="govt-slide-actions">
+                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#login?role=student')">
+                    <i data-lucide="code-2" style="width:18px; height:18px;"></i>
+                    <span>Take Skill Assessment</span>
+                  </button>
+                  <button class="btn btn-govt-secondary" onclick="CampusLinkApp.navigateTo('#login')">
+                    <i data-lucide="log-in" style="width:18px; height:18px;"></i>
+                    <span>Sign In to Your Portal</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Carousel Controls -->
+            <button class="govt-carousel-control prev" onclick="CampusLinkApp.prevLandingSlide()" aria-label="Previous Slide">
+              <i data-lucide="chevron-left" style="width:24px; height:24px;"></i>
             </button>
+            <button class="govt-carousel-control next" onclick="CampusLinkApp.nextLandingSlide()" aria-label="Next Slide">
+              <i data-lucide="chevron-right" style="width:24px; height:24px;"></i>
+            </button>
+
+            <!-- Indicators / Dots -->
+            <div class="govt-carousel-indicators">
+              <button class="govt-indicator active" onclick="CampusLinkApp.goToLandingSlide(0)"></button>
+              <button class="govt-indicator" onclick="CampusLinkApp.goToLandingSlide(1)"></button>
+              <button class="govt-indicator" onclick="CampusLinkApp.goToLandingSlide(2)"></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- OFFICIAL HUMAN-DESIGNED NATIONAL PORTALS GATEWAY STRIP -->
+        <div class="govt-portals-bar-container">
+          <div class="govt-portals-grid">
+            
+            <div class="govt-portal-card" onclick="CampusLinkApp.navigateTo('#login?role=student')">
+              <div class="govt-portal-icon student">
+                <i data-lucide="graduation-cap" style="width:26px; height:26px;"></i>
+              </div>
+              <div class="govt-portal-info">
+                <div class="govt-portal-role">Candidate & Student Desk</div>
+                <div class="govt-portal-meta">142 Live Drives • ATS Audits • Diagnostic Tests</div>
+              </div>
+              <div class="govt-portal-arrow">
+                <span>Enter Portal</span>
+                <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
+              </div>
+            </div>
+
+            <div class="govt-portal-card" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')">
+              <div class="govt-portal-icon recruiter">
+                <i data-lucide="building-2" style="width:26px; height:26px;"></i>
+              </div>
+              <div class="govt-portal-info">
+                <div class="govt-portal-role">Corporate Recruiter Suite</div>
+                <div class="govt-portal-meta">1,250+ Partners • Instant JD Parser • Conflict Resolution</div>
+              </div>
+              <div class="govt-portal-arrow">
+                <span>Enter Portal</span>
+                <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
+              </div>
+            </div>
+
+            <div class="govt-portal-card" onclick="CampusLinkApp.navigateTo('#login?role=officer')">
+              <div class="govt-portal-icon officer">
+                <i data-lucide="shield-check" style="width:26px; height:26px;"></i>
+              </div>
+              <div class="govt-portal-info">
+                <div class="govt-portal-role">TPO & Institutional Dean Desk</div>
+                <div class="govt-portal-meta">180+ Colleges • NIRF Metric Tables • NAAC Audits</div>
+              </div>
+              <div class="govt-portal-arrow">
+                <span>Enter Portal</span>
+                <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- VERIFIED NATIONAL IMPACT COUNTER (AUTHENTIC GOVT STYLE) -->
+        <div class="govt-stats-strip">
+          <div class="govt-stat-item">
+            <div class="govt-stat-num">48,500+</div>
+            <div class="govt-stat-label">Verified Candidates Placed</div>
+          </div>
+          <div class="govt-stat-divider"></div>
+          <div class="govt-stat-item">
+            <div class="govt-stat-num">1,250+</div>
+            <div class="govt-stat-label">Corporate Recruiters Onboarded</div>
+          </div>
+          <div class="govt-stat-divider"></div>
+          <div class="govt-stat-item">
+            <div class="govt-stat-num">180+</div>
+            <div class="govt-stat-label">Accredited Engineering & MBA Campuses</div>
+          </div>
+          <div class="govt-stat-divider"></div>
+          <div class="govt-stat-item">
+            <div class="govt-stat-num">₹44.5 LPA</div>
+            <div class="govt-stat-label">Highest Package (Avg. ₹14.2 LPA)</div>
           </div>
         </div>
 
@@ -1739,6 +1881,79 @@ const CampusLinkApp = {
     setTimeout(() => {
       if (window.lucide) window.lucide.createIcons();
     }, 50);
+  },
+
+
+  // -------------------------------------------------------------
+  // GOVERNMENT PORTAL HERO CAROUSEL CONTROLLER
+  // -------------------------------------------------------------
+  landingCarouselTimer: null,
+  currentLandingSlide: 0,
+
+  initLandingCarousel: () => {
+    CampusLinkApp.stopLandingCarousel();
+    CampusLinkApp.currentLandingSlide = 0;
+    CampusLinkApp.landingCarouselTimer = setInterval(() => {
+      CampusLinkApp.nextLandingSlide();
+    }, 5500);
+  },
+
+  stopLandingCarousel: () => {
+    if (CampusLinkApp.landingCarouselTimer) {
+      clearInterval(CampusLinkApp.landingCarouselTimer);
+      CampusLinkApp.landingCarouselTimer = null;
+    }
+  },
+
+  pauseLandingCarousel: () => {
+    if (CampusLinkApp.landingCarouselTimer) {
+      clearInterval(CampusLinkApp.landingCarouselTimer);
+      CampusLinkApp.landingCarouselTimer = null;
+    }
+  },
+
+  resumeLandingCarousel: () => {
+    if (!CampusLinkApp.landingCarouselTimer && (!window.location.hash || window.location.hash === '#' || window.location.hash.startsWith('#landing'))) {
+      CampusLinkApp.landingCarouselTimer = setInterval(() => {
+        CampusLinkApp.nextLandingSlide();
+      }, 5500);
+    }
+  },
+
+  goToLandingSlide: (index) => {
+    const slides = document.querySelectorAll('.govt-carousel-slide');
+    const indicators = document.querySelectorAll('.govt-indicator');
+    if (!slides || slides.length === 0) return;
+
+    if (index >= slides.length) index = 0;
+    if (index < 0) index = slides.length - 1;
+    CampusLinkApp.currentLandingSlide = index;
+
+    slides.forEach((slide, idx) => {
+      if (idx === index) {
+        slide.classList.add('active');
+      } else {
+        slide.classList.remove('active');
+      }
+    });
+
+    indicators.forEach((ind, idx) => {
+      if (idx === index) {
+        ind.classList.add('active');
+      } else {
+        ind.classList.remove('active');
+      }
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  },
+
+  nextLandingSlide: () => {
+    CampusLinkApp.goToLandingSlide(CampusLinkApp.currentLandingSlide + 1);
+  },
+
+  prevLandingSlide: () => {
+    CampusLinkApp.goToLandingSlide(CampusLinkApp.currentLandingSlide - 1);
   },
 
   // -------------------------------------------------------------
