@@ -8,6 +8,8 @@
  * - Global Placement AI Copilot Drawer & Universal Modals
  */
 
+const CURRENT_ACADEMIC_SESSION = '2026–27';
+
 const CampusLinkApp = {
   activeRole: 'student',
   currentUser: null,
@@ -16,18 +18,43 @@ const CampusLinkApp = {
   selectedTargetRole: 'Full Stack Engineer',
   selectedAuthRole: 'student',
   currentTheme: 'light',
+  sessionValidated: false,
 
-  init: () => {
+  init: async () => {
     // 0. Initialize theme from localStorage or system preference
     CampusLinkApp.initTheme();
 
-    // 1. Initialize user from storage if present
-    CampusLinkApp.currentUser = CampusLinkStore.getCurrentUser();
-    CampusLinkApp.stopLandingCarousel();
-    if (CampusLinkApp.currentUser) {
-      CampusLinkApp.activeRole = CampusLinkApp.currentUser.role;
-      CampusLinkStore.setRole(CampusLinkApp.currentUser.role);
+    // Setup global listener to dismiss user menu on outside clicks
+    document.addEventListener('click', (e) => {
+      const container = document.getElementById('header-user-menu-container');
+      if (container && !container.contains(e.target)) {
+        CampusLinkApp.closeUserMenu();
+      }
+    });
+
+    // 1. Session restoration & backend validation
+    // The backend is the authority: do not blindly trust client storage
+    const token = CampusLinkStore.getAuthToken();
+    if (token) {
+      const sessionResult = await CampusLinkStore.validateSession();
+      if (sessionResult.valid && sessionResult.user) {
+        CampusLinkApp.currentUser = sessionResult.user;
+        CampusLinkApp.activeRole = sessionResult.user.role;
+        CampusLinkStore.setRole(sessionResult.user.role);
+        CampusLinkApp.sessionValidated = true;
+      } else {
+        CampusLinkApp.currentUser = null;
+        CampusLinkApp.sessionValidated = false;
+        if (sessionResult.reason === 'expired') {
+          CampusLinkApp.showToast("Your session has expired. Please sign in again.", "warning");
+        }
+      }
+    } else {
+      CampusLinkApp.currentUser = null;
+      CampusLinkApp.sessionValidated = false;
     }
+
+    CampusLinkApp.stopLandingCarousel();
 
     // 2. Setup hash change listener for routing
     window.addEventListener('hashchange', CampusLinkApp.handleRouteChange);
@@ -44,6 +71,81 @@ const CampusLinkApp = {
     setTimeout(() => {
       if (window.lucide) window.lucide.createIcons();
     }, 100);
+  },
+
+  // -------------------------------------------------------------
+  // USER MENU CONTROLS & NAVIGATION HELPERS
+  // -------------------------------------------------------------
+  getDashboardRoute: (role) => {
+    switch (role) {
+      case 'student': return '#student/dashboard';
+      case 'recruiter': return '#recruiter/dashboard';
+      case 'officer': return '#officer/dashboard';
+      default: return '#landing';
+    }
+  },
+
+  toggleUserMenu: (e) => {
+    if (e) e.stopPropagation();
+    const dropdown = document.getElementById('header-user-dropdown');
+    const btn = document.getElementById('header-user-menu-btn');
+    if (!dropdown) return;
+    const isShown = dropdown.classList.contains('show');
+    if (isShown) {
+      dropdown.classList.remove('show');
+      dropdown.style.display = 'none';
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    } else {
+      dropdown.classList.add('show');
+      dropdown.style.display = 'block';
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+    }
+  },
+
+  closeUserMenu: () => {
+    const dropdown = document.getElementById('header-user-dropdown');
+    const btn = document.getElementById('header-user-menu-btn');
+    if (dropdown) {
+      dropdown.classList.remove('show');
+      dropdown.style.display = 'none';
+    }
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  },
+
+  navigateToProfile: () => {
+    CampusLinkApp.closeUserMenu();
+    if (!CampusLinkApp.currentUser) {
+      CampusLinkApp.navigateTo('#login');
+      return;
+    }
+    CampusLinkApp.navigateTo(`#${CampusLinkApp.activeRole}/profile`);
+  },
+
+  navigateToSettings: () => {
+    CampusLinkApp.closeUserMenu();
+    if (!CampusLinkApp.currentUser) {
+      CampusLinkApp.navigateTo('#login');
+      return;
+    }
+    CampusLinkApp.navigateTo(`#${CampusLinkApp.activeRole}/settings`);
+  },
+
+  // Universal Empty State Renderer for resilient, human-designed views
+  renderEmptyState: (icon, title, message, actionText = null, actionHandler = null) => {
+    return `
+      <div class="empty-state-box" style="text-align:center; padding:48px 24px; color:var(--text-muted); background:var(--bg-card); border-radius:var(--radius-md); border:1px dashed var(--border-color); margin:16px 0;">
+        <div style="width:52px; height:52px; border-radius:50%; background:var(--bg-inner-well); color:var(--text-muted); display:inline-flex; align-items:center; justify-content:center; margin-bottom:14px;">
+          <i data-lucide="${icon || 'inbox'}" style="width:24px; height:24px; opacity:0.8;"></i>
+        </div>
+        <h4 style="font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:6px;">${title}</h4>
+        <p style="font-size:13.5px; color:var(--text-muted); max-width:440px; margin:0 auto ${actionText ? '18px' : '0'} auto; line-height:1.5;">${message}</p>
+        ${actionText ? `
+          <button type="button" class="btn btn-primary btn-sm" onclick="${actionHandler}" style="margin:0 auto; display:inline-flex; align-items:center; gap:6px;">
+            <span>${actionText}</span>
+          </button>
+        ` : ''}
+      </div>
+    `;
   },
 
   // -------------------------------------------------------------
@@ -157,7 +259,267 @@ const CampusLinkApp = {
   // -------------------------------------------------------------
   navigateTo: (route) => {
     CampusLinkApp.closeSidebar();
+    CampusLinkApp.closeUserMenu();
     window.location.hash = route;
+  },
+
+  openPortal: (targetRole) => {
+    CampusLinkApp.closeSidebar();
+    CampusLinkApp.closeUserMenu();
+    const user = CampusLinkStore.getCurrentUser();
+    if (!user) {
+      CampusLinkStore.setIntendedDestination(`#${targetRole}/dashboard`);
+      CampusLinkApp.showToast(`Please sign in to access the ${targetRole.toUpperCase()} portal.`, "info");
+      window.location.hash = '#login';
+      return;
+    }
+    if (user.role !== targetRole) {
+      CampusLinkApp.showToast(`Access Denied: You are signed in as a ${user.role.toUpperCase()}. To access the ${targetRole.toUpperCase()} portal, please log out first.`, "warning");
+      return;
+    }
+    window.location.hash = `#${targetRole}/dashboard`;
+  },
+
+  enterPortal: (targetRole) => {
+    CampusLinkApp.openPortal(targetRole);
+  },
+
+  openCapability: (targetRoute, requiredRole, featureName) => {
+    CampusLinkApp.closeSidebar();
+    CampusLinkApp.closeUserMenu();
+    const user = CampusLinkStore.getCurrentUser();
+    if (!user) {
+      CampusLinkStore.setIntendedDestination(targetRoute);
+      CampusLinkApp.showToast(`Please sign in to access ${featureName}.`, "info");
+      window.location.hash = '#login';
+      return;
+    }
+    if (requiredRole && user.role !== requiredRole) {
+      CampusLinkApp.showToast(`Role Mismatch: ${featureName} requires a ${requiredRole.toUpperCase()} account (signed in as ${user.role.toUpperCase()}).`, "warning");
+      return;
+    }
+    window.location.hash = targetRoute;
+  },
+
+  // Campus Notices Dataset & Search Engine
+  campusNotices: [
+    {
+      id: 'notif-101',
+      title: 'Phase-1 Campus Placement Registration is Live',
+      category: 'Placement Drive',
+      date: '24 Sep 2026',
+      department: 'Central Placement Cell',
+      summary: 'Eligible final-year students (CSE, IT, ECE) must update their profile and submit verified resume for upcoming recruitment drives by September 30.',
+      fullText: 'All final year undergraduate candidates in Computer Science, Information Technology, and Electronics engineering with CGPA >= 6.5 and no active backlogs are instructed to verify their academic dossiers. Drive schedules will be published to your student portal.',
+      targetRole: 'student',
+      targetRoute: '#student/profile'
+    },
+    {
+      id: 'notif-102',
+      title: 'Google & Microsoft On-Campus Technical Rounds Schedule',
+      category: 'Placement Drive',
+      date: '22 Sep 2026',
+      department: 'Corporate Relations',
+      summary: 'Online coding assessments for SDE roles scheduled across campus compute clusters. Slots and lab allocations announced.',
+      fullText: 'Registered candidates must arrive 20 minutes prior to their assigned lab slot with university identity card. Assessments will be proctored via safe browser environment. Check the scheduler module for slot allocations.',
+      targetRole: 'student',
+      targetRoute: '#student/assessments'
+    },
+    {
+      id: 'notif-103',
+      title: 'NIRF / NAAC Criterion-5 Placement Reporting Preview Published',
+      category: 'Accreditation',
+      date: '20 Sep 2026',
+      department: 'Institutional IQAC Cell',
+      summary: 'Aggregated placement statistics, median CTC figures, and company rosters for Academic Session 2025–2026 compiled for internal review.',
+      fullText: 'The preliminary institutional placement dossier for Academic Session 2025–2026 is accessible on the compliance reporting desk. All departments are requested to cross-verify branch-wise placed counts before final export.',
+      targetRole: 'officer',
+      targetRoute: '#compliance'
+    },
+    {
+      id: 'notif-104',
+      title: 'System Design & Algorithmic Problem Solving Workshop',
+      category: 'Skill Workshop',
+      date: '18 Sep 2026',
+      department: 'Training & Development',
+      summary: 'Pre-placement masterclass by alumni tech leads covering distributed systems, Redis caching, and dynamic programming.',
+      fullText: 'Interactive 3-day bootcamp dedicated to bridging skill gaps identified in diagnostic tests. Recommended for students with readiness score between 60 and 80 aiming for Tier-1 technology companies.',
+      targetRole: 'student',
+      targetRoute: '#student/skill-gap'
+    },
+    {
+      id: 'notif-105',
+      title: 'Corporate Recruiter Onboarding & Job Posting Window Open',
+      category: 'Corporate Relations',
+      date: '15 Sep 2026',
+      department: 'Placement Directorate',
+      summary: 'Authorized enterprise partners may upload JD specifications, define custom eligibility criteria, and book on-campus interview slots.',
+      fullText: 'Partner talent acquisition teams can access the Corporate Recruiter Suite to parse JDs and evaluate algorithmic matching scores for the graduating cohort.',
+      targetRole: 'recruiter',
+      targetRoute: '#recruiter/jobs'
+    }
+  ],
+
+  activeNoticeCategory: 'all',
+
+  openNoticesModal: (initialQuery = '') => {
+    const modalHTML = `
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:8px; background:rgba(37,99,235,0.1); color:var(--brand-blue); display:flex; align-items:center; justify-content:center;">
+            <i data-lucide="megaphone" style="width:20px; height:20px;"></i>
+          </div>
+          <div>
+            <div class="modal-title" style="font-size:17px; font-weight:800;">Official Campus Placement Notices</div>
+            <div style="font-size:12px; color:var(--text-muted);">Session ${CURRENT_ACADEMIC_SESSION} • Central Placement Cell</div>
+          </div>
+        </div>
+        <button onclick="CampusLinkApp.closeModal()" style="background:none; border:none; cursor:pointer; color:var(--text-muted);" aria-label="Close modal">
+          <i data-lucide="x" style="width:20px; height:20px;"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding:20px 24px;">
+        <!-- Search & Filter Bar -->
+        <div style="display:flex; gap:10px; margin-bottom:16px;">
+          <div style="position:relative; flex:1;">
+            <i data-lucide="search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--text-muted);"></i>
+            <input type="text" id="notices-search-input" value="${initialQuery}" placeholder="Search notices..." oninput="CampusLinkApp.filterNoticesList()" style="width:100%; padding:10px 14px 10px 38px; border:1px solid var(--border-color); border-radius:var(--radius-md); font-size:13.5px; background:var(--bg-card); color:var(--text-primary); outline:none;">
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('notices-search-input').value=''; CampusLinkApp.filterNoticesList();" style="padding:0 14px;">Clear</button>
+        </div>
+
+        <!-- Filter Chips -->
+        <div style="display:flex; gap:8px; margin-bottom:18px; overflow-x:auto; padding-bottom:4px;">
+          <button class="btn btn-sm btn-primary notice-cat-btn" onclick="CampusLinkApp.filterNoticesCategory('all', this)">All Notices</button>
+          <button class="btn btn-sm btn-secondary notice-cat-btn" onclick="CampusLinkApp.filterNoticesCategory('Placement Drive', this)">Placement Drives</button>
+          <button class="btn btn-sm btn-secondary notice-cat-btn" onclick="CampusLinkApp.filterNoticesCategory('Skill Workshop', this)">Workshops</button>
+          <button class="btn btn-sm btn-secondary notice-cat-btn" onclick="CampusLinkApp.filterNoticesCategory('Accreditation', this)">Accreditation</button>
+        </div>
+
+        <!-- Dynamic Results List Container -->
+        <div id="notices-results-container" style="max-height:380px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+          <!-- Injected via filterNoticesList -->
+        </div>
+      </div>
+    `;
+
+    CampusLinkApp.openModal(modalHTML);
+    CampusLinkApp.activeNoticeCategory = 'all';
+    CampusLinkApp.filterNoticesList();
+  },
+
+  filterNoticesCategory: (cat, btnEl) => {
+    CampusLinkApp.activeNoticeCategory = cat;
+    document.querySelectorAll('.notice-cat-btn').forEach(b => {
+      b.classList.remove('btn-primary');
+      b.classList.add('btn-secondary');
+    });
+    if (btnEl) {
+      btnEl.classList.remove('btn-secondary');
+      btnEl.classList.add('btn-primary');
+    }
+    CampusLinkApp.filterNoticesList();
+  },
+
+  filterNoticesList: () => {
+    const input = document.getElementById('notices-search-input');
+    const query = input ? input.value.trim().toLowerCase() : '';
+    const cat = CampusLinkApp.activeNoticeCategory || 'all';
+
+    let filtered = CampusLinkApp.campusNotices;
+    if (cat !== 'all') {
+      filtered = filtered.filter(n => n.category === cat);
+    }
+    if (query) {
+      filtered = filtered.filter(n => 
+        n.title.toLowerCase().includes(query) ||
+        n.summary.toLowerCase().includes(query) ||
+        n.department.toLowerCase().includes(query) ||
+        n.category.toLowerCase().includes(query)
+      );
+    }
+
+    const container = document.getElementById('notices-results-container');
+    if (!container) return;
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:32px 16px; color:var(--text-muted);">
+          <i data-lucide="search-x" style="width:32px; height:32px; margin-bottom:8px; opacity:0.5;"></i>
+          <div style="font-weight:700; font-size:14px; color:var(--text-primary); margin-bottom:4px;">No notices found</div>
+          <div style="font-size:12.5px;">No campus bulletin records match your query "${query}".</div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = filtered.map(n => `
+        <div class="card" style="padding:14px 16px; border:1px solid var(--border-color); background:var(--bg-card); display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div>
+              <span class="badge badge-info" style="font-size:11px; margin-right:6px;">${n.category}</span>
+              <span style="font-size:11.5px; color:var(--text-muted);">${n.department}</span>
+            </div>
+            <span style="font-size:11.5px; color:var(--text-muted); font-weight:600; white-space:nowrap;">${n.date}</span>
+          </div>
+          <div style="font-weight:700; font-size:14px; color:var(--text-primary); line-height:1.4;">${n.title}</div>
+          <div style="font-size:12.5px; color:var(--text-muted); line-height:1.5;">${n.summary}</div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:4px;">
+            <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.viewNoticeDetails('${n.id}')" style="font-size:12px; padding:4px 12px;">
+              <span>Read Notice</span>
+              <i data-lucide="arrow-right" style="width:13px; height:13px;"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    if (window.lucide) window.lucide.createIcons();
+  },
+
+  viewNoticeDetails: (id) => {
+    const notice = CampusLinkApp.campusNotices.find(n => n.id === id);
+    if (!notice) return;
+
+    const detailHTML = `
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:8px; background:rgba(37,99,235,0.1); color:var(--brand-blue); display:flex; align-items:center; justify-content:center;">
+            <i data-lucide="file-text" style="width:20px; height:20px;"></i>
+          </div>
+          <div>
+            <div class="modal-title" style="font-size:16px; font-weight:800;">Notice Circular</div>
+            <div style="font-size:12px; color:var(--text-muted);">${notice.department} • ${notice.date}</div>
+          </div>
+        </div>
+        <button onclick="CampusLinkApp.closeModal()" style="background:none; border:none; cursor:pointer; color:var(--text-muted);" aria-label="Close modal">
+          <i data-lucide="x" style="width:20px; height:20px;"></i>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding:22px 24px;">
+        <div style="margin-bottom:12px;">
+          <span class="badge badge-info" style="font-size:11.5px;">${notice.category}</span>
+          <span style="font-size:12px; color:var(--text-muted); margin-left:8px;">Academic Session ${CURRENT_ACADEMIC_SESSION}</span>
+        </div>
+        <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:12px; line-height:1.4;">${notice.title}</h3>
+        <p style="font-size:13.5px; color:var(--text-muted); line-height:1.6; margin-bottom:16px;">${notice.summary}</p>
+        <div style="background:var(--bg-inner-well); border-radius:var(--radius-md); padding:16px; font-size:13px; color:var(--text-primary); line-height:1.6; margin-bottom:20px; border-left:4px solid var(--brand-blue);">
+          ${notice.fullText}
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.openNoticesModal()">
+            <i data-lucide="arrow-left" style="width:14px; height:14px;"></i>
+            <span>Back to Notices</span>
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.closeModal(); CampusLinkApp.navigateTo('${notice.targetRoute}')">
+            <span>Open Target Desk</span>
+            <i data-lucide="external-link" style="width:14px; height:14px;"></i>
+          </button>
+        </div>
+      </div>
+    `;
+
+    CampusLinkApp.openModal(detailHTML);
   },
 
   navigateToNotifications: () => {
@@ -225,11 +587,9 @@ const CampusLinkApp = {
 
     // 3. Protected Portal Routes: Authentication Check
     if (!CampusLinkApp.currentUser) {
-      CampusLinkApp.showToast("Please sign in to access this portal.", "warning");
-      let targetRole = 'student';
-      if (hash.startsWith('#recruiter')) targetRole = 'recruiter';
-      if (hash.startsWith('#officer')) targetRole = 'officer';
-      window.location.hash = `#login?role=${targetRole}`;
+      CampusLinkApp.showToast("Please sign in to access this section.", "warning");
+      CampusLinkStore.setIntendedDestination(hash);
+      window.location.hash = '#login';
       return;
     }
 
@@ -237,17 +597,17 @@ const CampusLinkApp = {
     const userRole = CampusLinkApp.currentUser.role;
     if (hash.startsWith('#student') && userRole !== 'student') {
       CampusLinkApp.showToast(`Access Denied: You are signed in as a ${userRole.toUpperCase()} and cannot access the Student Portal. Please log out first.`, "danger");
-      window.location.hash = `#${userRole}/dashboard`;
+      window.location.hash = CampusLinkApp.getDashboardRoute(userRole);
       return;
     }
     if (hash.startsWith('#recruiter') && userRole !== 'recruiter') {
       CampusLinkApp.showToast(`Access Denied: You are signed in as a ${userRole.toUpperCase()} and cannot access the Corporate Recruiter Suite. Please log out first.`, "danger");
-      window.location.hash = `#${userRole}/dashboard`;
+      window.location.hash = CampusLinkApp.getDashboardRoute(userRole);
       return;
     }
     if (hash.startsWith('#officer') && userRole !== 'officer') {
       CampusLinkApp.showToast(`Access Denied: You are signed in as a ${userRole.toUpperCase()} and cannot access the Placement Officer Command Center. Please log out first.`, "danger");
-      window.location.hash = `#${userRole}/dashboard`;
+      window.location.hash = CampusLinkApp.getDashboardRoute(userRole);
       return;
     }
 
@@ -463,10 +823,24 @@ const CampusLinkApp = {
     const backdrop = document.getElementById('sidebar-backdrop');
     if (backdrop) backdrop.classList.remove('open');
 
+    // Update Header Unified User Menu
+    const headerUserAvatar = document.getElementById('header-user-avatar');
+    const headerUserName = document.getElementById('header-user-name');
+    const headerUserRole = document.getElementById('header-user-role');
+    const dropdownUserName = document.getElementById('dropdown-user-name');
+    const dropdownUserRole = document.getElementById('dropdown-user-role');
+
+    const roleName = CampusLinkApp.activeRole === 'student' ? 'Student Portal' : CampusLinkApp.activeRole === 'recruiter' ? 'Corporate Recruiter' : 'Placement Officer';
+
+    if (headerUserAvatar) headerUserAvatar.src = user.avatar || roleMeta.defaultAvatar || roleMeta.avatar;
+    if (headerUserName) headerUserName.textContent = user.name || 'User';
+    if (headerUserRole) headerUserRole.textContent = roleName;
+    if (dropdownUserName) dropdownUserName.textContent = user.name || 'User';
+    if (dropdownUserRole) dropdownUserRole.textContent = `${roleName} • Session ${CURRENT_ACADEMIC_SESSION}`;
+
     // Update Header Role Badge
     const headerBadge = document.getElementById('header-user-role-badge');
     if (headerBadge) {
-      const roleName = CampusLinkApp.activeRole === 'student' ? 'Student Portal' : CampusLinkApp.activeRole === 'recruiter' ? 'Recruiter Suite' : 'Placement Officer';
       headerBadge.textContent = `${roleName} • ${user.name}`;
       headerBadge.className = `badge badge-${CampusLinkApp.activeRole === 'student' ? 'info' : CampusLinkApp.activeRole === 'recruiter' ? 'purple' : 'success'}`;
     }
@@ -768,12 +1142,19 @@ const CampusLinkApp = {
     if (backdrop) backdrop.classList.remove('open');
   },
 
-  handleLogout: () => {
-    CampusLinkStore.logout();
-    CampusLinkApp.currentUser = null;
+  logout: async function() {
+    return await this.handleLogout();
+  },
+
+  handleLogout: async () => {
+    CampusLinkApp.closeUserMenu();
     CampusLinkApp.closeSidebar();
+    await CampusLinkStore.logout();
+    CampusLinkApp.currentUser = null;
+    CampusLinkApp.sessionValidated = false;
     CampusLinkApp.showToast("You have been securely logged out.", "info");
     window.location.hash = '#landing';
+    CampusLinkApp.renderLandingPage();
   },
 
   // -------------------------------------------------------------
@@ -852,7 +1233,7 @@ const CampusLinkApp = {
     }
   },
 
-  handleAIChatSubmit: (e) => {
+  handleAIChatSubmit: async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     const input = document.getElementById('ai-chat-input');
     const container = document.getElementById('ai-chat-messages');
@@ -871,27 +1252,45 @@ const CampusLinkApp = {
     // Scroll chat down
     container.scrollTop = container.scrollHeight;
 
-    // Simulate AI Response
-    setTimeout(() => {
-      let aiResponse = "CampusLink AI analyzed your query against our institutional knowledge graph.";
-      const lower = userText.toLowerCase();
+    // Show temporary typing indicator
+    const typingBubble = document.createElement('div');
+    typingBubble.className = 'chat-bubble assistant';
+    typingBubble.id = 'ai-typing-indicator';
+    typingBubble.innerHTML = `<em>Consulting placement intelligence...</em>`;
+    container.appendChild(typingBubble);
+    container.scrollTop = container.scrollHeight;
 
-      if (lower.includes('system design') || lower.includes('google')) {
-        aiResponse = "To optimize your Google L3 Readiness, focus on distributed rate limiters and cache invalidation strategies. Your DSA score is 90/100 (top 2%), so 12 hours of system design exercises will boost your readiness score past 92/100.";
-      } else if (lower.includes('skill gap') || lower.includes('sde')) {
-        aiResponse = "For Full Stack SDE-1, you hold an 89% profile match. Critical missing components: gRPC and Kubernetes deployment manifests. Completing the AWS microservices module will bridge this gap in ~1 week.";
-      } else if (lower.includes('conflict')) {
-        aiResponse = "Detected a double-booking conflict on Oct 08 between Microsoft IDC and Amazon Dev Center. The AI Scheduler recommends shifting Amazon Round 2 to the 02:30 PM slot, resolving all 6 top candidate overlaps.";
-      } else if (lower.includes('risk')) {
-        aiResponse = "Currently, 48 students are flagged in the At-Risk tier, predominantly driven by aptitude thresholds (<60%) and zero verified projects. Remedial bootcamps are ready for assignment.";
+    try {
+      let aiResponse = null;
+      if (window.CampusLinkAPI) {
+        const res = await window.CampusLinkAPI.queryAIAssistant(userText);
+        if (res && res.success && res.data && res.data.response) {
+          aiResponse = res.data.response;
+        }
       }
+
+      const indicator = document.getElementById('ai-typing-indicator');
+      if (indicator) container.removeChild(indicator);
 
       const assistantBubble = document.createElement('div');
       assistantBubble.className = 'chat-bubble assistant';
-      assistantBubble.innerHTML = `<strong>CampusLink AI:</strong> ${aiResponse}`;
+      if (aiResponse) {
+        assistantBubble.innerHTML = `<strong>Placement AI Assistant:</strong> ${aiResponse}`;
+      } else {
+        assistantBubble.innerHTML = `<strong>Placement AI Assistant:</strong> The Python AI copilot endpoint (<code>/api/ai/chat</code>) is not yet connected. When the Python backend is implemented in the next phase, natural language placement queries will be processed here by the institutional model.`;
+      }
       container.appendChild(assistantBubble);
       container.scrollTop = container.scrollHeight;
-    }, 600);
+    } catch (err) {
+      const indicator = document.getElementById('ai-typing-indicator');
+      if (indicator) container.removeChild(indicator);
+
+      const assistantBubble = document.createElement('div');
+      assistantBubble.className = 'chat-bubble assistant';
+      assistantBubble.innerHTML = `<strong>Placement AI Assistant:</strong> The AI reasoning service is currently offline. Awaiting Python backend connection.`;
+      container.appendChild(assistantBubble);
+      container.scrollTop = container.scrollHeight;
+    }
   },
 
   // -------------------------------------------------------------
@@ -1612,12 +2011,12 @@ const CampusLinkApp = {
           </div>
 
           <div class="landing-nav-actions">
-            <button id="landing-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode">
+            <button id="landing-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode" aria-label="Toggle Theme">
               <i id="landing-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:16px; height:16px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
             </button>
             <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="padding:8px 18px; font-weight:700;">
               <i data-lucide="log-in" style="width:15px; height:15px;"></i>
-              <span>Sign In / Login</span>
+              <span>Sign In</span>
             </button>
           </div>
         </nav>
@@ -1633,25 +2032,25 @@ const CampusLinkApp = {
               <div class="govt-slide-content">
                 <div class="govt-slide-badge">
                   <i data-lucide="award" style="width:14px; height:14px;"></i>
-                  <span>National Institutional Placement Initiative 2026</span>
+                  <span>Institutional Campus Placement Platform • Session ${CURRENT_ACADEMIC_SESSION}</span>
                 </div>
-                <h2 class="govt-slide-title">Campus to Corporate, Engineered for National Excellence</h2>
+                <h2 class="govt-slide-title">Campus to Corporate, Engineered for Academic Excellence</h2>
                 <p class="govt-slide-desc">
-                  Connecting over 1,250+ top corporate recruiters with verified engineering, management, and technology talent across 180+ accredited universities.
+                  Connecting corporate recruiters with verified engineering, management, and technology talent across accredited institutions.
                 </p>
                 <div class="govt-slide-features">
-                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> UGC & AICTE Aligned</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> AICTE & UGC Aligned Workflows</span>
                   <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Verified Digital Offer Letters</span>
-                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> 94.8% Placement Success</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Centralized Placement Tracking</span>
                 </div>
                 <div class="govt-slide-actions">
-                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#login?role=student')">
-                    <i data-lucide="graduation-cap" style="width:18px; height:18px;"></i>
-                    <span>Student Career Desk</span>
+                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#capabilities')">
+                    <i data-lucide="compass" style="width:18px; height:18px;"></i>
+                    <span>Explore Platform</span>
                   </button>
-                  <button class="btn btn-govt-secondary" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')">
-                    <i data-lucide="building-2" style="width:18px; height:18px;"></i>
-                    <span>Corporate Recruiter Desk</span>
+                  <button class="btn btn-govt-secondary" onclick="CampusLinkApp.navigateTo('#login')">
+                    <i data-lucide="log-in" style="width:18px; height:18px;"></i>
+                    <span>Sign In</span>
                   </button>
                 </div>
               </div>
@@ -1666,23 +2065,23 @@ const CampusLinkApp = {
                   <i data-lucide="shield-check" style="width:14px; height:14px;"></i>
                   <span>Institutional Accreditation & Placement Governance</span>
                 </div>
-                <h2 class="govt-slide-title">NIRF Benchmark & NAAC Criterion-V Compliance</h2>
+                <h2 class="govt-slide-title">NIRF Placement Reporting & NAAC Criterion-V Data</h2>
                 <p class="govt-slide-desc">
-                  Equipping University Deans and Placement Directors with instant 1-click accreditation audit exports, transparent salary distributions, and tamper-proof verification.
+                  Equipping University Deans and Placement Directors with instant accreditation reporting preview exports, salary distribution breakdowns, and audit dossiers.
                 </p>
                 <div class="govt-slide-features">
-                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> 1-Click NIRF Metric Tables</span>
-                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> NAAC Criterion-5 Ready</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> NIRF Placement Metric Tables</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> NAAC Criterion-5 Models</span>
                   <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Conflict-Free Drive Scheduler</span>
                 </div>
                 <div class="govt-slide-actions">
-                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#login?role=officer')">
-                    <i data-lucide="shield-check" style="width:18px; height:18px;"></i>
-                    <span>Placement Command Center</span>
-                  </button>
-                  <button class="btn btn-govt-secondary" onclick="CampusLinkApp.navigateTo('#compliance-section')">
+                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#compliance')">
                     <i data-lucide="file-spreadsheet" style="width:18px; height:18px;"></i>
-                    <span>View Accreditation Data</span>
+                    <span>View Compliance Data</span>
+                  </button>
+                  <button class="btn btn-govt-secondary" onclick="CampusLinkApp.navigateTo('#login')">
+                    <i data-lucide="log-in" style="width:18px; height:18px;"></i>
+                    <span>Sign In</span>
                   </button>
                 </div>
               </div>
@@ -1695,25 +2094,25 @@ const CampusLinkApp = {
               <div class="govt-slide-content">
                 <div class="govt-slide-badge">
                   <i data-lucide="cpu" style="width:14px; height:14px;"></i>
-                  <span>Industry Skill Alignment & Proctored Labs</span>
+                  <span>Industry Skill Alignment & Diagnostic Labs</span>
                 </div>
-                <h2 class="govt-slide-title">Automated Skill Gap Analysis & Proctored Evaluations</h2>
+                <h2 class="govt-slide-title">Skill Gap Analysis & Candidate Evaluation</h2>
                 <p class="govt-slide-desc">
-                  Multi-pillar benchmarking across DSA algorithms, system design, and communication with instant ATS resume feedback and personalized learning bootcamps.
+                  Multi-pillar benchmarking across core algorithms, system design, and communication with instant ATS resume feedback and personalized preparation modules.
                 </p>
                 <div class="govt-slide-features">
-                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> 0–100 Readiness Benchmark</span>
-                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> AI ATS Resume Score</span>
-                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Highest CTC ₹44.5 LPA</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Diagnostic Readiness Benchmarks</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Interactive ATS Resume Scoring</span>
+                  <span class="govt-feat-tag"><i data-lucide="check-circle-2"></i> Corporate Recruiter Matching</span>
                 </div>
                 <div class="govt-slide-actions">
-                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#login?role=student')">
-                    <i data-lucide="code-2" style="width:18px; height:18px;"></i>
-                    <span>Take Skill Assessment</span>
+                  <button class="btn btn-govt-primary" onclick="CampusLinkApp.navigateTo('#capabilities')">
+                    <i data-lucide="compass" style="width:18px; height:18px;"></i>
+                    <span>Explore Platform</span>
                   </button>
                   <button class="btn btn-govt-secondary" onclick="CampusLinkApp.navigateTo('#login')">
                     <i data-lucide="log-in" style="width:18px; height:18px;"></i>
-                    <span>Sign In to Your Portal</span>
+                    <span>Sign In</span>
                   </button>
                 </div>
               </div>
@@ -1736,71 +2135,71 @@ const CampusLinkApp = {
           </div>
         </div>
 
-        <!-- OFFICIAL LIVE GOVERNMENT / INSTITUTIONAL BULLETIN STRIP (MOVED DOWN) -->
-        <div class="govt-bulletin-container" style="margin:22px auto 26px auto;">
+        <!-- OFFICIAL CAMPUS BULLETIN & SEARCHABLE NOTICES STRIP -->
+        <div class="govt-bulletin-container" style="margin:22px auto 26px auto; cursor:pointer;" onclick="CampusLinkApp.openNoticesModal()" title="Click to view and search campus notices">
           <div class="govt-bulletin-label">
             <i data-lucide="megaphone" style="width:14px; height:14px;"></i>
-            <span>OFFICIAL NOTICES</span>
+            <span>CAMPUS NOTICES</span>
           </div>
           <div class="govt-bulletin-ticker">
             <div class="govt-bulletin-content">
-              <span>🔴 <strong>LATEST:</strong> Phase-1 Centralized Campus Placement 2026-27 Registration is Live for all Accredited Institutions</span>
+              <span><strong>LATEST:</strong> Campus Placement Registration for Session ${CURRENT_ACADEMIC_SESSION} is Open</span>
               <span class="bulletin-separator">•</span>
-              <span>🎓 <strong>STUDENT DESK:</strong> Proctored Technical Assessments & ATS Resume Scanner active for registered batches</span>
+              <span>🎓 <strong>STUDENT DESK:</strong> Proctored Technical Assessments & Profile Verification Active</span>
               <span class="bulletin-separator">•</span>
-              <span>🏢 <strong>CORPORATE RECRUITMENT:</strong> 1,250+ Verified Corporate Partners Onboarded • Schedule conflict-free campus test & interview slots</span>
+              <span>🏢 <strong>CORPORATE RECRUITMENT:</strong> Partner Company Onboarding & Drive Scheduler Ready</span>
               <span class="bulletin-separator">•</span>
-              <span>🏛️ <strong>ACCREDITATION DESK:</strong> Institutional NIRF & NAAC Criterion-V compliance automated tables ready for download</span>
+              <span>📊 <strong>ACCREDITATION:</strong> Institutional Placement & Compliance Reporting Desk Available</span>
             </div>
           </div>
-          <div class="govt-bulletin-date">
-            <i data-lucide="calendar" style="width:13px; height:13px;"></i>
-            <span>Session 2026–27</span>
+          <div class="govt-bulletin-date" style="display:flex; align-items:center; gap:6px;">
+            <i data-lucide="search" style="width:13px; height:13px;"></i>
+            <span>Search notices...</span>
           </div>
         </div>
 
-        <!-- OFFICIAL HUMAN-DESIGNED NATIONAL PORTALS GATEWAY STRIP -->
+        <!-- PORTALS GATEWAY STRIP -->
         <div class="govt-portals-bar-container">
           <div class="govt-portals-grid">
             
-            <div class="govt-portal-card" onclick="CampusLinkApp.navigateTo('#login?role=student')">
+            <div class="govt-portal-card" onclick="CampusLinkApp.openPortal('student')">
               <div class="govt-portal-icon student">
                 <i data-lucide="graduation-cap" style="width:26px; height:26px;"></i>
               </div>
               <div class="govt-portal-info">
-                <div class="govt-portal-role">Candidate & Student Desk</div>
-                <div class="govt-portal-meta">142 Live Drives • ATS Audits • Diagnostic Tests</div>
+                <div class="govt-portal-role">Student Portal</div>
+                <div class="govt-portal-meta">Manage placement profile, readiness, applications and offers.</div>
               </div>
               <div class="govt-portal-arrow">
-                <span>Enter Portal</span>
+                <span>Open Portal</span>
                 <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
               </div>
             </div>
 
-            <div class="govt-portal-card" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')">
+            <div class="govt-portal-card" onclick="CampusLinkApp.openPortal('recruiter')">
               <div class="govt-portal-icon recruiter">
                 <i data-lucide="building-2" style="width:26px; height:26px;"></i>
               </div>
               <div class="govt-portal-info">
-                <div class="govt-portal-role">Corporate Recruiter Suite</div>
-                <div class="govt-portal-meta">1,250+ Partners • Instant JD Parser • Conflict Resolution</div>
+                <div class="govt-portal-role">Recruiter Portal</div>
+                <div class="govt-portal-meta">Manage jobs, candidates, drives and offers.</div>
               </div>
               <div class="govt-portal-arrow">
-                <span>Enter Portal</span>
+                <span>Open Portal</span>
                 <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
               </div>
             </div>
 
-            <div class="govt-portal-card" onclick="CampusLinkApp.navigateTo('#login?role=officer')">
+            <div class="govt-portal-card" onclick="CampusLinkApp.openPortal('officer')">
               <div class="govt-portal-icon officer">
                 <i data-lucide="shield-check" style="width:26px; height:26px;"></i>
               </div>
               <div class="govt-portal-info">
-                <div class="govt-portal-role">TPO & Institutional Dean Desk</div>
-                <div class="govt-portal-meta">180+ Colleges • NIRF Metric Tables • NAAC Audits</div>
+                <div class="govt-portal-role">Placement Office</div>
+                <div class="govt-portal-meta">Manage placement operations, scheduling, analytics and reports.</div>
               </div>
               <div class="govt-portal-arrow">
-                <span>Enter Portal</span>
+                <span>Open Portal</span>
                 <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
               </div>
             </div>
@@ -1808,26 +2207,26 @@ const CampusLinkApp = {
           </div>
         </div>
 
-        <!-- VERIFIED NATIONAL IMPACT COUNTER (AUTHENTIC GOVT STYLE) -->
+        <!-- INSTITUTIONAL IMPACT PILLARS (CLEAN DESCRIPTIVE CONTENT, NO FABRICATED NUMBERS) -->
         <div class="govt-stats-strip">
           <div class="govt-stat-item">
-            <div class="govt-stat-num">48,500+</div>
-            <div class="govt-stat-label">Verified Candidates Placed</div>
+            <div class="govt-stat-num" style="font-size:20px; font-weight:800; color:var(--text-primary);">Placement Operations</div>
+            <div class="govt-stat-label">Centralized Drive & Assessment Management</div>
           </div>
           <div class="govt-stat-divider"></div>
           <div class="govt-stat-item">
-            <div class="govt-stat-num">1,250+</div>
-            <div class="govt-stat-label">Corporate Recruiters Onboarded</div>
+            <div class="govt-stat-num" style="font-size:20px; font-weight:800; color:var(--text-primary);">Recruiter Management</div>
+            <div class="govt-stat-label">Corporate Talent Acquisition & Scheduling</div>
           </div>
           <div class="govt-stat-divider"></div>
           <div class="govt-stat-item">
-            <div class="govt-stat-num">180+</div>
-            <div class="govt-stat-label">Accredited Engineering & MBA Campuses</div>
+            <div class="govt-stat-num" style="font-size:20px; font-weight:800; color:var(--text-primary);">Institutional Reporting</div>
+            <div class="govt-stat-label">NIRF & NAAC Accreditation Compliance</div>
           </div>
           <div class="govt-stat-divider"></div>
           <div class="govt-stat-item">
-            <div class="govt-stat-num">₹44.5 LPA</div>
-            <div class="govt-stat-label">Highest Package (Avg. ₹14.2 LPA)</div>
+            <div class="govt-stat-num" style="font-size:20px; font-weight:800; color:var(--text-primary);">Placement Analytics</div>
+            <div class="govt-stat-label">Multi-Pillar Employability Intelligence</div>
           </div>
         </div>
 
@@ -2009,12 +2408,12 @@ const CampusLinkApp = {
           </div>
 
           <div class="landing-nav-actions">
-            <button id="landing-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode">
+            <button id="landing-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode" aria-label="Toggle Theme">
               <i id="landing-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:16px; height:16px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
             </button>
             <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="padding:8px 18px; font-weight:700;">
               <i data-lucide="log-in" style="width:15px; height:15px;"></i>
-              <span>Sign In / Login</span>
+              <span>Sign In</span>
             </button>
           </div>
         </nav>
@@ -2027,7 +2426,7 @@ const CampusLinkApp = {
               <i data-lucide="arrow-left" style="width:14px; height:14px;"></i> Home
             </a>
             <span>/</span>
-            <span style="color:var(--text-primary); font-weight:600;">Platform Capabilities Dashboard</span>
+            <span style="color:var(--text-primary); font-weight:600;">Platform Capabilities</span>
           </div>
 
           <!-- HERO HEADER -->
@@ -2037,118 +2436,242 @@ const CampusLinkApp = {
               <span>Institutional Core Engine</span>
             </div>
             <h1 style="font-family:var(--font-heading); font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">
-              Institutional Placement Operating System Architecture
+              CAMPUSLINK Platform Capabilities
             </h1>
             <p style="font-size:15px; color:var(--text-muted); max-width:820px; line-height:1.6; margin-bottom:20px;">
-              CAMPUSLINK provides high-trust, automated placement operations engineered specifically for accredited technical and management universities. Explore the 6 core pillars below.
+              Enterprise campus-to-corporate placement management, automated scheduling, candidate matching, and accreditation analytics across 12 institutional modules.
             </p>
             <div style="display:flex; gap:12px; flex-wrap:wrap;">
-              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#login?role=student')">
-                <i data-lucide="graduation-cap" style="width:16px; height:16px;"></i>
-                <span>Explore Student Portal</span>
-              </button>
-              <button class="btn btn-secondary" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')">
-                <i data-lucide="building-2" style="width:16px; height:16px;"></i>
-                <span>Explore Recruiter Suite</span>
+              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#portals')">
+                <i data-lucide="door-open" style="width:16px; height:16px;"></i>
+                <span>Open Portals Gateway</span>
               </button>
               <button class="btn btn-secondary" onclick="CampusLinkApp.navigateTo('#compliance')">
                 <i data-lucide="file-check-2" style="width:16px; height:16px;"></i>
-                <span>View NIRF / NAAC Data</span>
+                <span>NIRF / NAAC Data Desk</span>
               </button>
             </div>
           </div>
 
-          <!-- 6 CAPABILITY DEEP DIVE CARDS -->
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:24px; margin-bottom:40px;">
+          <!-- ALL 12 REAL CAPABILITIES MAPPED TO PLATFORM MODULES -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:22px; margin-bottom:40px;">
             
-            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
-              <div style="width:48px; height:48px; border-radius:12px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
-                <i data-lucide="cpu" style="width:24px; height:24px;"></i>
+            <!-- 1. Student Readiness -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="award" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-info" style="font-size:11px;">Student Portal</span>
               </div>
-              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Multi-Vector AI Matcher</h3>
-              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
-                Evaluates candidates across 5 deterministic vectors: Academic CGPA, DSA problem-solving benchmarks, System Design, Real-world Projects, and Soft Skills with 98% hiring alignment.
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Student Readiness</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                AI-assisted employability profiling and diagnostic competency tracking across core technical and soft skills.
               </p>
-              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
-                ⚡ Benchmark: 98% hiring alignment vs uncurated JD pools
-              </div>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#student/readiness', 'student', 'Student Readiness')" style="width:100%; justify-content:center;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
             </div>
 
-            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
-              <div style="width:48px; height:48px; border-radius:12px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
-                <i data-lucide="calendar-check-2" style="width:24px; height:24px;"></i>
+            <!-- 2. Skill Gap Analysis -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#f0fdf4; color:#16a34a; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="compass" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-success" style="font-size:11px;">Student Portal</span>
               </div>
-              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Conflict-Free Drive Scheduler</h3>
-              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
-                Automated timetable manager preventing overlapping interviews, classroom lab booking bottlenecks, and recruiter interview panel collisions across concurrent hiring drives.
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Skill Gap Analysis</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Identifies curriculum proficiencies against target corporate role specifications and recommends study pathways.
               </p>
-              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
-                ⚡ Zero slot overlap guarantee across 5 simultaneous interview tracks
-              </div>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#student/skill-gap', 'student', 'Skill Gap Analysis')" style="width:100%; justify-content:center;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
             </div>
 
-            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
-              <div style="width:48px; height:48px; border-radius:12px; background:#f5f3ff; color:#7c3aed; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
-                <i data-lucide="trending-up" style="width:24px; height:24px;"></i>
+            <!-- 3. Recruiter-Student Matching -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#f5f3ff; color:#7c3aed; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="cpu" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-purple" style="font-size:11px;">Recruiter Suite</span>
               </div>
-              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Predictive Risk Engine</h3>
-              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
-                Identifies unplaced and at-risk students 6 months prior to graduation, auto-recommending targeted coding bootcamps and faculty mentor interventions.
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Recruiter-Student Matching</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Multi-vector candidate ranking matching job criteria with verified student academic dossiers and project metrics.
               </p>
-              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
-                ⚡ Proactive cohort alerts with 1-click mentor assignments
-              </div>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#recruiter/ai-matching', 'recruiter', 'Recruiter-Student Matching')" style="width:100%; justify-content:center; background:#7c3aed; border-color:#6d28d9;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
             </div>
 
-            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
-              <div style="width:48px; height:48px; border-radius:12px; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
-                <i data-lucide="sparkles" style="width:24px; height:24px;"></i>
+            <!-- 4. Drive Scheduling -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="calendar-range" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-success" style="font-size:11px;">Placement Office</span>
               </div>
-              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Real-Time Explainability Engine</h3>
-              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
-                Provides transparent "Why Matched" and "Why Not Shortlisted" insights for students and recruiters, eliminating recruitment black boxes and guiding personalized upskilling.
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Drive Scheduling</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Coordinates multi-tier recruitment timelines, slot allocations, and online assessment test windows across companies.
               </p>
-              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
-                ⚡ 100% transparent algorithmic criteria and score breakdown
-              </div>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#officer/drives', 'officer', 'Drive Scheduling')" style="width:100%; justify-content:center; background:#059669; border-color:#047857;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
             </div>
 
-            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
-              <div style="width:48px; height:48px; border-radius:12px; background:#ecfeff; color:#0891b2; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
-                <i data-lucide="file-check-2" style="width:24px; height:24px;"></i>
+            <!-- 5. Conflict Detection -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#fef2f2; color:#ef4444; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="calendar-x-2" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-danger" style="font-size:11px;">Placement Office</span>
               </div>
-              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">NAAC & NIRF Automation</h3>
-              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
-                Generates instant Criterion-V placement compliance dossiers with verified median/average CTC calculations, company rosters, and audit-ready PDF/Excel/CSV exports.
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Conflict Detection</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Automated detection of overlapping interview schedules, lab capacity bottlenecks, and simultaneous candidate collisions.
               </p>
-              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
-                ⚡ 1-click export for National Institutional Ranking Framework (NIRF)
-              </div>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#officer/scheduler', 'officer', 'Conflict Detection')" style="width:100%; justify-content:center; background:#ef4444; border-color:#dc2626;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
             </div>
 
-            <div class="card" style="padding:28px; display:flex; flex-direction:column;">
-              <div style="width:48px; height:48px; border-radius:12px; background:#fdf2f8; color:#db2777; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
-                <i data-lucide="shield-check" style="width:24px; height:24px;"></i>
+            <!-- 6. Interview Management -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="video" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-info" style="font-size:11px;">Student Portal</span>
               </div>
-              <h3 style="font-size:19px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">Cryptographic RBAC & Audit Vault</h3>
-              <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:16px; flex:1;">
-                Strict JWT-backed Role-Based Access Control separating student records, proprietary recruiter scoring, and executive administrative governance with tamper-proof logs.
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Interview Management</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Centralized interview round tracking, slot acknowledgments, panel feedback, and candidate status progression.
               </p>
-              <div style="background:var(--bg-inner-well); border-radius:8px; padding:12px 16px; font-size:12.5px; font-weight:600; color:var(--text-primary);">
-                ⚡ ISO 9001:2015 & GDPR compliant institutional architecture
-              </div>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#student/interviews', 'student', 'Interview Management')" style="width:100%; justify-content:center;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
             </div>
 
-          </div>
+            <!-- 7. Offer Tracking -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#fdf2f8; color:#db2777; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="gift" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-cyan" style="font-size:11px;">Student Portal</span>
+              </div>
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Offer Tracking</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Centralized recording of verified job offers, letter releases, CTC breakdown details, and institutional acceptances.
+              </p>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#student/offers', 'student', 'Offer Tracking')" style="width:100%; justify-content:center;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
+            </div>
 
-          <!-- ARCHITECTURAL WORKFLOW BANNER -->
-          <div class="card" style="padding:32px; text-align:center; background:var(--bg-inner-well);">
-            <h3 style="font-size:20px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Ready to Experience CampusLink?</h3>
-            <p style="font-size:14px; color:var(--text-muted); margin-bottom:20px;">Access your designated institutional workspace or sign in to review live records.</p>
-            <button class="btn btn-primary btn-lg" onclick="CampusLinkApp.navigateTo('#portals')" style="padding:12px 28px;">
-              <span>View Institutional Portals</span>
-              <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
-            </button>
+            <!-- 8. Documentation Tracking -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#fef3c7; color:#d97706; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="folder-check" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-warning" style="font-size:11px;">Student Portal</span>
+              </div>
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Documentation Tracking</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Institutional student credential repository, mark sheet verification workflows, and academic document auditing.
+              </p>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#student/documents', 'student', 'Documentation Tracking')" style="width:100%; justify-content:center;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
+            </div>
+
+            <!-- 9. Placement Analytics -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#ecfeff; color:#0891b2; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="pie-chart" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-warning" style="font-size:11px;">Placement Office</span>
+              </div>
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Placement Analytics</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Branch-wise placement conversions, compensation distributions, and departmental intelligence reports.
+              </p>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#officer/analytics', 'officer', 'Placement Analytics')" style="width:100%; justify-content:center;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
+            </div>
+
+            <!-- 10. Risk Prediction -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#fef2f2; color:#ef4444; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="alert-triangle" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-danger" style="font-size:11px;">Placement Office</span>
+              </div>
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Risk Prediction</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Predictive modeling identifying at-risk and unplaced candidates for proactive remedial interventions.
+              </p>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#officer/risk-prediction', 'officer', 'Risk Prediction')" style="width:100%; justify-content:center; background:#ef4444; border-color:#dc2626;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
+            </div>
+
+            <!-- 11. Notifications -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#f8fafc; color:#475569; display:flex; align-items:center; justify-content:center; border:1px solid var(--border-color);">
+                  <i data-lucide="bell" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-info" style="font-size:11px;">Student Portal</span>
+              </div>
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Notifications</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Real-time alerts, campus announcements, assessment schedules, and drive deadline updates.
+              </p>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.openCapability('#student/notifications', 'student', 'Notifications')" style="width:100%; justify-content:center;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
+            </div>
+
+            <!-- 12. Institutional Reporting -->
+            <div class="card" style="padding:24px; display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+                <div style="width:44px; height:44px; border-radius:10px; background:#f5f3ff; color:#7c3aed; display:flex; align-items:center; justify-content:center;">
+                  <i data-lucide="file-spreadsheet" style="width:22px; height:22px;"></i>
+                </div>
+                <span class="badge badge-purple" style="font-size:11px;">Institutional Desk</span>
+              </div>
+              <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Institutional Reporting</h3>
+              <p style="font-size:13.5px; color:var(--text-muted); line-height:1.55; margin-bottom:18px; flex:1;">
+                Standardized academic indicators and placement compliance data generation for NIRF and NAAC accreditation.
+              </p>
+              <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#compliance')" style="width:100%; justify-content:center;">
+                <span>Explore</span>
+                <i data-lucide="arrow-right" style="width:14px; height:14px;"></i>
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
@@ -2204,7 +2727,7 @@ const CampusLinkApp = {
             </button>
             <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="padding:8px 18px; font-weight:700;">
               <i data-lucide="log-in" style="width:15px; height:15px;"></i>
-              <span>Sign In / Login</span>
+              <span>Sign In</span>
             </button>
           </div>
         </nav>
@@ -2221,16 +2744,16 @@ const CampusLinkApp = {
           </div>
 
           <!-- HERO HEADER -->
-          <div class="card" style="padding:32px; margin-bottom:32px; border-left:5px solid #10b981; background:var(--bg-card);">
-            <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(16,185,129,0.1); color:#059669; padding:4px 12px; border-radius:999px; font-size:11.5px; font-weight:700; text-transform:uppercase; margin-bottom:12px;">
+          <div class="card" style="padding:32px; margin-bottom:32px; border-left:5px solid var(--brand-blue); background:var(--bg-card);">
+            <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(37,99,235,0.1); color:var(--brand-blue); padding:4px 12px; border-radius:999px; font-size:11.5px; font-weight:700; text-transform:uppercase; margin-bottom:12px;">
               <i data-lucide="door-open" style="width:14px; height:14px;"></i>
               <span>Authorized Access Gateways</span>
             </div>
             <h1 style="font-family:var(--font-heading); font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:10px;">
-              Institutional Placement Portals & Role Desks
+              Institutional Placement Portals
             </h1>
             <p style="font-size:15px; color:var(--text-muted); max-width:820px; line-height:1.6;">
-              Select your designated institutional gateway below to access role-specific placement intelligence, corporate candidate shortlisting, or executive university compliance desks.
+              Select your designated portal gateway below. Once authenticated, your authorized role routes you directly into the workspace.
             </p>
           </div>
 
@@ -2243,65 +2766,65 @@ const CampusLinkApp = {
                 <div style="width:52px; height:52px; border-radius:12px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center;">
                   <i data-lucide="graduation-cap" style="width:26px; height:26px;"></i>
                 </div>
-                <span style="background:rgba(37,99,235,0.1); color:#2563eb; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">142 Active Drives</span>
+                <span style="background:rgba(37,99,235,0.1); color:#2563eb; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">Student Access</span>
               </div>
-              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Candidate & Student Career Portal</h2>
+              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">STUDENT PORTAL</h2>
               <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:20px; flex:1;">
-                Designed for undergraduate and postgraduate aspirants. Access live diagnostic readiness scoring, proctored coding assessments, ATS resume optimization, and track offers in real-time.
+                Manage placement profile, readiness, applications and offers.
               </p>
               <div style="margin-bottom:24px; font-size:13px; color:var(--text-primary);">
-                <div style="margin-bottom:6px;">✓ <strong>0–100 Readiness Benchmark:</strong> Multi-pillar competency tracking</div>
-                <div style="margin-bottom:6px;">✓ <strong>Interactive ATS Resume Scanner:</strong> Instant keyword alignment</div>
-                <div style="margin-bottom:6px;">✓ <strong>Verified Offer Letter Vault:</strong> Encrypted digital certificates</div>
+                <div style="margin-bottom:6px;">• Employability readiness benchmarking</div>
+                <div style="margin-bottom:6px;">• Skill gap analysis & target role matching</div>
+                <div style="margin-bottom:6px;">• Verified offer letter vault & interview tracking</div>
               </div>
-              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#login?role=student')" style="width:100%; justify-content:center; padding:12px;">
-                <span>Sign In as Student Aspirant</span>
+              <button class="btn btn-primary" onclick="CampusLinkApp.openPortal('student')" style="width:100%; justify-content:center; padding:12px;">
+                <span>Open Portal</span>
                 <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
               </button>
             </div>
 
-            <!-- Recruiter Suite Card -->
+            <!-- Recruiter Portal Card -->
             <div class="card" style="padding:32px; display:flex; flex-direction:column; border-top:4px solid #8b5cf6;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
                 <div style="width:52px; height:52px; border-radius:12px; background:#f5f3ff; color:#7c3aed; display:flex; align-items:center; justify-content:center;">
                   <i data-lucide="building-2" style="width:26px; height:26px;"></i>
                 </div>
-                <span style="background:rgba(124,58,237,0.1); color:#7c3aed; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">1,250+ Corporates</span>
+                <span style="background:rgba(124,58,237,0.1); color:#7c3aed; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">Corporate Hiring</span>
               </div>
-              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">Corporate Recruiter Suite</h2>
+              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">RECRUITER PORTAL</h2>
               <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:20px; flex:1;">
-                Tailored for Talent Acquisition leads and technical interviewers. Post campus openings, parse job descriptions into structured filters, run AI candidate ranking, and schedule interview slots.
+                Manage jobs, candidates, drives and offers.
               </p>
               <div style="margin-bottom:24px; font-size:13px; color:var(--text-primary);">
-                <div style="margin-bottom:6px;">✓ <strong>Instant JD Requirement Parser:</strong> Auto-extracts skill tags</div>
-                <div style="margin-bottom:6px;">✓ <strong>Multi-Vector Ranking:</strong> Algorithmic candidate matching</div>
-                <div style="margin-bottom:6px;">✓ <strong>Conflict-Free Interview Loops:</strong> Live schedule coordinator</div>
+                <div style="margin-bottom:6px;">• Campus job posting & requirement parsing</div>
+                <div style="margin-bottom:6px;">• Automated candidate matching & shortlisting</div>
+                <div style="margin-bottom:6px;">• Interview loop scheduling & drive coordination</div>
               </div>
-              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#login?role=recruiter')" style="width:100%; justify-content:center; padding:12px; background:#7c3aed; border-color:#6d28d9;">
-                <span>Sign In as Corporate Recruiter</span>
+              <button class="btn btn-primary" onclick="CampusLinkApp.openPortal('recruiter')" style="width:100%; justify-content:center; padding:12px; background:#7c3aed; border-color:#6d28d9;">
+                <span>Open Portal</span>
                 <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
               </button>
             </div>
 
-            <!-- Placement Officer Card -->
+            <!-- Placement Office Card -->
             <div class="card" style="padding:32px; display:flex; flex-direction:column; border-top:4px solid #10b981;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
                 <div style="width:52px; height:52px; border-radius:12px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center;">
                   <i data-lucide="shield-check" style="width:26px; height:26px;"></i>
                 </div>
-                <span style="background:rgba(16,185,129,0.1); color:#059669; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">180+ Colleges</span>
+                <span style="background:rgba(16,185,129,0.1); color:#059669; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:6px;">Placement Administration</span>
               </div>
-              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">TPO & Placement Command Center</h2>
+              <h2 style="font-size:21px; font-weight:800; color:var(--text-primary); margin-bottom:8px;">PLACEMENT OFFICE</h2>
               <p style="font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:20px; flex:1;">
-                Built for University Deans, Principals, and Placement Directors. Oversee placement conversion KPIs, automate NAAC/NIRF audit submissions, verify student credentials, and manage drives.
+                Manage placement operations, scheduling, analytics and reports.
               </p>
               <div style="margin-bottom:24px; font-size:13px; color:var(--text-primary);">
-                <div style="margin-bottom:6px;">✓ <strong>Executive Conversion Metrics:</strong> Real-time placement rates</div>
-                <div style="margin-bottom:6px;">✓ <strong>Predictive Risk Flagging:</strong> Proactive student interventions</div>
-                <div style="margin-bottom:6px;">✓ <strong>NAAC & NIRF Compliance Desk:</strong> One-click verified exports</div>
+                <div style="margin-bottom:6px;">• Unified drive coordination & conflict resolution</div>
+                <div style="margin-bottom:6px;">• Placement analytics & risk prediction monitoring</div>
+                <div style="margin-bottom:6px;">• Institutional accreditation & compliance reporting</div>
               </div>
-              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#login?role=officer')" style="width:100%; justify-content:center; padding:12px; background:#059669; border-color:#047857;">
-                <span>Sign In as Placement Officer</span>
+              <button class="btn btn-primary" onclick="CampusLinkApp.openPortal('officer')" style="width:100%; justify-content:center; padding:12px; background:#059669; border-color:#047857;">
+                <span>Open Portal</span>
                 <i data-lucide="arrow-right" style="width:16px; height:16px;"></i>
               </button>
             </div>
@@ -2319,6 +2842,8 @@ const CampusLinkApp = {
   // -------------------------------------------------------------
   // PUBLIC DASHBOARD 3: NIRF / NAAC ACCREDITATION COMPLIANCE DASHBOARD
   // -------------------------------------------------------------
+  activeComplianceTab: 'nirf',
+
   renderComplianceDashboard: () => {
     CampusLinkApp.stopLandingCarousel();
     const shell = document.getElementById('app-shell');
@@ -2334,6 +2859,9 @@ const CampusLinkApp = {
     const content = document.getElementById('app-content');
     if (!content) return;
 
+    const currentTab = CampusLinkApp.activeComplianceTab || 'nirf';
+    const hasData = false; // Prepared for future backend API data
+
     content.innerHTML = `
       <div style="margin:-32px -40px; background:var(--bg-canvas); min-height:100vh;">
         <div class="govt-top-strip"></div>
@@ -2344,7 +2872,7 @@ const CampusLinkApp = {
             <img src="assets/campuslink_logo.png" alt="CampusLink Logo" class="landing-nav-logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
             <div>
               <div class="landing-nav-title">CAMPUSLINK</div>
-              <div class="landing-nav-subtitle">Accreditation Repository • NIRF & NAAC Criterion-V</div>
+              <div class="landing-nav-subtitle">Institutional Reporting • NIRF & NAAC</div>
             </div>
           </div>
 
@@ -2361,7 +2889,7 @@ const CampusLinkApp = {
             </button>
             <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="padding:8px 18px; font-weight:700;">
               <i data-lucide="log-in" style="width:15px; height:15px;"></i>
-              <span>Sign In / Login</span>
+              <span>Sign In</span>
             </button>
           </div>
         </nav>
@@ -2374,21 +2902,21 @@ const CampusLinkApp = {
               <i data-lucide="arrow-left" style="width:14px; height:14px;"></i> Home
             </a>
             <span>/</span>
-            <span style="color:var(--text-primary); font-weight:600;">NIRF & NAAC Placement Compliance Dossier</span>
+            <span style="color:var(--text-primary); font-weight:600;">Institutional Reporting Desk</span>
           </div>
 
           <!-- HEADER WITH EXPORT ACTIONS -->
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:28px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
             <div>
               <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(37,99,235,0.1); color:var(--brand-blue); padding:4px 12px; border-radius:999px; font-size:11.5px; font-weight:700; text-transform:uppercase; margin-bottom:8px;">
-                <i data-lucide="award" style="width:14px; height:14px;"></i>
-                <span>Official Institutional Audit Portal</span>
+                <i data-lucide="file-spreadsheet" style="width:14px; height:14px;"></i>
+                <span>Institutional Reporting</span>
               </div>
               <h1 style="font-family:var(--font-heading); font-size:28px; font-weight:800; color:var(--text-primary); margin-bottom:6px;">
-                Institutional Placement Compliance & NIRF / NAAC Data Desk
+                Placement & Compliance Reporting Desk
               </h1>
               <p style="font-size:14.5px; color:var(--text-muted); max-width:760px; line-height:1.5;">
-                Audited metrics, salary percentiles, department-wise placement conversions, and company rosters for Academic Session 2025–2026.
+                Institutional placement indicators, student progression metrics, and accreditation data exports for Academic Session ${CURRENT_ACADEMIC_SESSION}.
               </p>
             </div>
 
@@ -2399,139 +2927,86 @@ const CampusLinkApp = {
               </button>
               <button class="btn btn-primary" onclick="CampusLinkApp.exportComplianceData('csv')">
                 <i data-lucide="download" style="width:15px; height:15px;"></i>
-                <span>Export Audit CSV</span>
-              </button>
-              <button class="btn btn-secondary" onclick="CampusLinkApp.exportComplianceData('excel')">
-                <i data-lucide="file-spreadsheet" style="width:15px; height:15px;"></i>
-                <span>Export Excel (.xlsx)</span>
+                <span>Export Report CSV</span>
               </button>
             </div>
           </div>
 
-          <!-- 4 KEY ACCREDITATION METRICS -->
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:18px; margin-bottom:32px;">
-            
-            <div class="card" style="padding:22px;">
-              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Graduating Batch Placed</div>
-              <div style="font-size:28px; font-weight:800; color:var(--brand-blue); margin-bottom:4px;">94.8%</div>
-              <div style="font-size:12.5px; color:#10b981; font-weight:600;">645 out of 680 Students</div>
-            </div>
-
-            <div class="card" style="padding:22px;">
-              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">NIRF Median CTC (Metric 5.2.1)</div>
-              <div style="font-size:28px; font-weight:800; color:#10b981; margin-bottom:4px;">₹12.50 LPA</div>
-              <div style="font-size:12.5px; color:var(--text-muted);">+14.2% YoY Growth</div>
-            </div>
-
-            <div class="card" style="padding:22px;">
-              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Institutional Average CTC</div>
-              <div style="font-size:28px; font-weight:800; color:#8b5cf6; margin-bottom:4px;">₹14.20 LPA</div>
-              <div style="font-size:12.5px; color:var(--text-muted);">Across All 5 Engineering Depts</div>
-            </div>
-
-            <div class="card" style="padding:22px;">
-              <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px;">Highest Compensation Offer</div>
-              <div style="font-size:28px; font-weight:800; color:#f59e0b; margin-bottom:4px;">₹44.50 LPA</div>
-              <div style="font-size:12.5px; color:var(--text-muted);">Google International SDE</div>
-            </div>
-
+          <!-- NIRF / NAAC TABS -->
+          <div style="display:flex; gap:8px; border-bottom:1px solid var(--border-color); margin-bottom:28px;">
+            <button onclick="CampusLinkApp.switchComplianceTab('nirf')" class="btn" style="border-radius:0; border-bottom:2px solid ${currentTab === 'nirf' ? 'var(--brand-blue)' : 'transparent'}; background:none; color:${currentTab === 'nirf' ? 'var(--brand-blue)' : 'var(--text-muted)'}; font-weight:${currentTab === 'nirf' ? '700' : '500'}; padding:10px 20px;">
+              <i data-lucide="bar-chart-2" style="width:16px; height:16px;"></i>
+              <span>NIRF Reporting</span>
+            </button>
+            <button onclick="CampusLinkApp.switchComplianceTab('naac')" class="btn" style="border-radius:0; border-bottom:2px solid ${currentTab === 'naac' ? 'var(--brand-blue)' : 'transparent'}; background:none; color:${currentTab === 'naac' ? 'var(--brand-blue)' : 'var(--text-muted)'}; font-weight:${currentTab === 'naac' ? '700' : '500'}; padding:10px 20px;">
+              <i data-lucide="award" style="width:16px; height:16px;"></i>
+              <span>NAAC Criterion 5.2.1</span>
+            </button>
           </div>
 
-          <!-- VERIFIED DEPARTMENT-WISE ACCREDITATION TABLE -->
-          <div class="card" style="padding:28px; margin-bottom:32px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-              <div>
-                <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:4px;">
-                  NAAC Criterion 5.2.1: Department-Wise Placement Conversion
-                </h3>
-                <p style="font-size:13px; color:var(--text-muted);">Official audited records submitted to National Board of Accreditation (NBA) & NIRF</p>
+          ${currentTab === 'nirf' ? `
+            <!-- NIRF REPORTING VIEW -->
+            <div class="card" style="padding:28px; margin-bottom:24px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:4px;">
+                    NIRF Academic Progression & Placement Indicators
+                  </h3>
+                  <p style="font-size:13px; color:var(--text-muted);">
+                    Data table structured according to standard National Institutional Ranking Framework graduation outcome metrics.
+                  </p>
+                </div>
+                <span class="badge" style="background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-muted); font-size:12px;">
+                  Session ${CURRENT_ACADEMIC_SESSION}
+                </span>
               </div>
-              <span style="background:rgba(16,185,129,0.12); color:#059669; font-weight:700; font-size:12px; padding:4px 12px; border-radius:6px;">
-                Verified & Tamper-Proof
-              </span>
-            </div>
 
-            <div style="overflow-x:auto;">
-              <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13.5px;">
-                <thead>
-                  <tr style="border-bottom:2px solid var(--border-color); color:var(--text-muted); font-size:12px; text-transform:uppercase;">
-                    <th style="padding:12px 14px;">Academic Program / Department</th>
-                    <th style="padding:12px 14px;">Graduating Strength</th>
-                    <th style="padding:12px 14px;">Students Placed</th>
-                    <th style="padding:12px 14px;">Placement %</th>
-                    <th style="padding:12px 14px;">Median CTC</th>
-                    <th style="padding:12px 14px;">Average CTC</th>
-                    <th style="padding:12px 14px;">Highest Offer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style="border-bottom:1px solid var(--border-color);">
-                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Computer Science & Engineering (CSE)</td>
-                    <td style="padding:14px;">240</td>
-                    <td style="padding:14px; font-weight:600; color:#10b981;">236</td>
-                    <td style="padding:14px; font-weight:700; color:#10b981;">98.3%</td>
-                    <td style="padding:14px;">₹15.50 LPA</td>
-                    <td style="padding:14px; font-weight:700;">₹18.40 LPA</td>
-                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹44.50 LPA</td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border-color);">
-                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Information Technology (IT)</td>
-                    <td style="padding:14px;">120</td>
-                    <td style="padding:14px; font-weight:600; color:#10b981;">117</td>
-                    <td style="padding:14px; font-weight:700; color:#10b981;">97.5%</td>
-                    <td style="padding:14px;">₹14.00 LPA</td>
-                    <td style="padding:14px; font-weight:700;">₹16.80 LPA</td>
-                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹42.00 LPA</td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border-color);">
-                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Electronics & Communication (ECE)</td>
-                    <td style="padding:14px;">160</td>
-                    <td style="padding:14px; font-weight:600; color:#10b981;">150</td>
-                    <td style="padding:14px; font-weight:700; color:#10b981;">93.8%</td>
-                    <td style="padding:14px;">₹11.50 LPA</td>
-                    <td style="padding:14px; font-weight:700;">₹13.20 LPA</td>
-                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹36.00 LPA</td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border-color);">
-                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Mechanical Engineering</td>
-                    <td style="padding:14px;">90</td>
-                    <td style="padding:14px; font-weight:600; color:#10b981;">80</td>
-                    <td style="padding:14px; font-weight:700; color:#10b981;">88.9%</td>
-                    <td style="padding:14px;">₹8.80 LPA</td>
-                    <td style="padding:14px; font-weight:700;">₹9.60 LPA</td>
-                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹24.00 LPA</td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border-color);">
-                    <td style="padding:14px; font-weight:700; color:var(--text-primary);">Civil & Infrastructure Engg</td>
-                    <td style="padding:14px;">70</td>
-                    <td style="padding:14px; font-weight:600; color:#10b981;">62</td>
-                    <td style="padding:14px; font-weight:700; color:#10b981;">88.6%</td>
-                    <td style="padding:14px;">₹7.50 LPA</td>
-                    <td style="padding:14px; font-weight:700;">₹8.40 LPA</td>
-                    <td style="padding:14px; color:#f59e0b; font-weight:700;">₹18.00 LPA</td>
-                  </tr>
-                </tbody>
-              </table>
+              ${hasData ? `
+                <!-- Data Table will render here once connected to backend -->
+              ` : `
+                ${CampusLinkApp.renderEmptyState(
+                  'file-text',
+                  'No institutional data available.',
+                  'Institutional placement indicators and NIRF reporting datasets will be generated here once batch drive data is submitted by departments.',
+                  'View Platform Capabilities',
+                  "CampusLinkApp.navigateTo('#capabilities')"
+                )}
+              `}
             </div>
-          </div>
+          ` : `
+            <!-- NAAC CRITERION 5.2.1 VIEW -->
+            <div class="card" style="padding:28px; margin-bottom:24px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:4px;">
+                    NAAC Criterion 5.2.1: Student Progression to Employment
+                  </h3>
+                  <p style="font-size:13px; color:var(--text-muted);">
+                    Verification records for student placements, corporate partner rosters, and institutional outcome certifications.
+                  </p>
+                </div>
+                <span class="badge" style="background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-muted); font-size:12px;">
+                  Session ${CURRENT_ACADEMIC_SESSION}
+                </span>
+              </div>
 
-          <!-- TIER-1 RECRUITERS ROSTER -->
-          <div class="card" style="padding:28px;">
-            <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:6px;">
-              Accredited Corporate Hiring Partners (1,250+ Total)
-            </h3>
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Top recruiters participating in institutional on-campus and proctored hybrid drives</p>
-            <div style="display:flex; flex-wrap:wrap; gap:12px;">
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Google (28 Offers)</span>
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Microsoft (34 Offers)</span>
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Amazon (42 Offers)</span>
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Cisco (19 Offers)</span>
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Goldman Sachs (15 Offers)</span>
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">TCS Digital (112 Offers)</span>
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Infosys PowerProg (78 Offers)</span>
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">Deloitte (54 Offers)</span>
-              <span class="badge" style="padding:8px 16px; font-size:13px; font-weight:700; background:var(--bg-inner-well); border:1px solid var(--border-color); color:var(--text-primary);">LTIMindtree (66 Offers)</span>
+              ${hasData ? `
+                <!-- Data Table will render here once connected to backend -->
+              ` : `
+                ${CampusLinkApp.renderEmptyState(
+                  'award',
+                  'No institutional data available.',
+                  'Criterion 5.2.1 verification rosters and accreditation exports will appear once drive records are finalized.',
+                  'Return to Home',
+                  "CampusLinkApp.navigateTo('#landing')"
+                )}
+              `}
             </div>
+          `}
+
+          <!-- INSTITUTIONAL COMPLIANCE GUIDANCE NOTE -->
+          <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:20px; font-size:13px; color:var(--text-muted); line-height:1.6;">
+            <strong style="color:var(--text-primary);">Institutional Reporting Standards:</strong> All reporting data is formatted strictly in compliance with statutory institutional guidelines. When the Python analytics and database service is connected, live aggregation will automatically compute metric percentiles across participating departments.
           </div>
         </div>
       </div>
@@ -2540,6 +3015,11 @@ const CampusLinkApp = {
     setTimeout(() => {
       if (window.lucide) window.lucide.createIcons();
     }, 50);
+  },
+
+  switchComplianceTab: (tab) => {
+    CampusLinkApp.activeComplianceTab = tab;
+    CampusLinkApp.renderComplianceDashboard();
   },
 
   exportComplianceData: (format) => {
@@ -2585,9 +3065,9 @@ const CampusLinkApp = {
   },
 
   // -------------------------------------------------------------
-  // DEDICATED AUTHENTICATION VIEW (SIGN IN / SIGN UP)
+  // DEDICATED AUTHENTICATION VIEW (ONE CENTRAL SIGN IN / REGISTRATION)
   // -------------------------------------------------------------
-  renderAuthView: (hash) => {
+  renderAuthView: (hash = (typeof window !== 'undefined' && window.location ? window.location.hash : '') || '#login') => {
     const shell = document.getElementById('app-shell');
     if (shell) shell.style.display = 'block';
 
@@ -2603,47 +3083,11 @@ const CampusLinkApp = {
     if (main) main.style.marginLeft = '0';
 
     const isRegister = hash.includes('register');
-    
-    // Parse role from query params if specified (e.g., #login?role=recruiter)
-    let selectedRole = 'student';
-    if (hash.includes('role=recruiter')) selectedRole = 'recruiter';
-    if (hash.includes('role=officer')) selectedRole = 'officer';
-    CampusLinkApp.selectedAuthRole = selectedRole;
+    let registerRole = CampusLinkApp.selectedAuthRole || 'student';
+    if (hash.includes('role=recruiter')) registerRole = 'recruiter';
+    if (hash.includes('role=officer')) registerRole = 'officer';
+    CampusLinkApp.selectedAuthRole = registerRole;
 
-    const roleData = {
-      student: {
-        label: 'Student Aspirant',
-        icon: 'graduation-cap',
-        color: '#2563eb',
-        idFieldLabel: 'College USN / Roll Number',
-        idPlaceholder: 'e.g. 1CL22CS042',
-        demoEmail: 'student@campuslink.edu',
-        demoPass: 'password123',
-        demoName: 'Aarav Sharma (B.Tech CSE)'
-      },
-      recruiter: {
-        label: 'Corporate Recruiter',
-        icon: 'building-2',
-        color: '#8b5cf6',
-        idFieldLabel: 'Company / Organization Name',
-        idPlaceholder: 'e.g. Google India Pvt Ltd',
-        demoEmail: 'rohit@google.com',
-        demoPass: 'password123',
-        demoName: 'Rohit Deshmukh (Google Talent Lead)'
-      },
-      officer: {
-        label: 'Placement Officer',
-        icon: 'shield-check',
-        color: '#10b981',
-        idFieldLabel: 'Officer Staff Code / Department',
-        idPlaceholder: 'e.g. TPO-NIT-2026',
-        demoEmail: 'officer@campuslink.edu',
-        demoPass: 'password123',
-        demoName: 'Dr. Sunita Ramanathan (Dean)'
-      }
-    };
-
-    const currentRole = roleData[selectedRole];
     CampusLinkApp.currentCaptcha = CampusLinkApp.generateCaptchaCode();
 
     content.innerHTML = `
@@ -2654,7 +3098,7 @@ const CampusLinkApp = {
         <div class="auth-top-bar">
           <a href="#landing" class="auth-back-link" style="display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600;">
             <i data-lucide="arrow-left" style="width:16px; height:16px;"></i>
-            <span>Back to Public Portal</span>
+            <span>Home</span>
           </a>
 
           <div style="display:flex; align-items:center; gap:14px;">
@@ -2663,161 +3107,142 @@ const CampusLinkApp = {
             </button>
             <div style="display:flex; align-items:center; gap:8px;">
               <img src="assets/campuslink_logo.png" style="width:24px; height:24px; border-radius:4px; background:white; padding:2px;" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
-              <span class="auth-brand-label" style="font-weight:800; font-size:14px; color:#ffffff;">CAMPUSLINK AUTH DESK</span>
+              <span class="auth-brand-label" style="font-weight:800; font-size:14px; color:#ffffff;">CAMPUSLINK</span>
             </div>
           </div>
         </div>
 
-        <!-- MAIN AUTH WRAPPER WITH FROSTED GLASS CLEAN ROOM BACKGROUND -->
+        <!-- MAIN AUTH WRAPPER -->
         <div class="auth-page-wrapper auth-glass-bg">
           <div class="auth-container">
             <div class="auth-card auth-glass-card">
-            <div class="auth-header">
-              <div class="auth-badge-official">
-                <i data-lucide="lock" style="width:12px; height:12px;"></i>
-                <span>Institutional Centralized Access</span>
+              <div class="auth-header">
+                <div class="auth-badge-official">
+                  <i data-lucide="lock" style="width:12px; height:12px;"></i>
+                  <span>Centralized Portal Access</span>
+                </div>
+                <h1 class="auth-title">${isRegister ? 'New Account Registration' : 'Sign In'}</h1>
+                <p class="auth-subtitle">${isRegister ? 'Register your account to access your institutional workspace.' : 'Enter your credentials to access your designated workspace.'}</p>
               </div>
-              <h1 class="auth-title">${isRegister ? 'New Account Registration' : 'Sign In to Portal'}</h1>
-              <p class="auth-subtitle">Select your authorized institutional role to proceed</p>
-            </div>
 
-            <!-- ROLE SELECTOR TABS -->
-            <div class="auth-role-tabs">
-              <button class="auth-role-tab ${selectedRole === 'student' ? 'active student' : ''}" onclick="CampusLinkApp.selectAuthRole('student', ${isRegister})">
-                <i data-lucide="graduation-cap" style="width:18px; height:18px; color:${selectedRole === 'student' ? '#2563eb' : 'inherit'};"></i>
-                <span>Student</span>
-              </button>
-              <button class="auth-role-tab ${selectedRole === 'recruiter' ? 'active recruiter' : ''}" onclick="CampusLinkApp.selectAuthRole('recruiter', ${isRegister})">
-                <i data-lucide="building-2" style="width:18px; height:18px; color:${selectedRole === 'recruiter' ? '#8b5cf6' : 'inherit'};"></i>
-                <span>Recruiter</span>
-              </button>
-              <button class="auth-role-tab ${selectedRole === 'officer' ? 'active officer' : ''}" onclick="CampusLinkApp.selectAuthRole('officer', ${isRegister})">
-                <i data-lucide="shield-check" style="width:18px; height:18px; color:${selectedRole === 'officer' ? '#10b981' : 'inherit'};"></i>
-                <span>Officer</span>
-              </button>
-            </div>
-
-            <!-- DIRECT SOCIAL / OAUTH 1-CLICK SIGN IN -->
-            <div class="social-auth-container" style="margin-bottom:20px;">
-              <div style="font-size:11.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; text-align:center; margin-bottom:10px;">
-                Direct 1-Click Institutional Account Access
-              </div>
-              <div class="social-auth-grid">
-                <button type="button" class="social-btn" onclick="CampusLinkApp.handleOAuthLogin('google', '${selectedRole}')" title="Direct login with Google Workspace">
-                  <svg viewBox="0 0 24 24" width="18" height="18">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>Google</span>
+              <!-- MODE TOGGLE TABS (SIGN IN vs REGISTRATION) -->
+              <div class="auth-mode-switch" style="margin-bottom:24px;">
+                <button class="auth-mode-btn ${!isRegister ? 'active' : ''}" onclick="CampusLinkApp.navigateTo('#login')">
+                  Sign In
                 </button>
-                <button type="button" class="social-btn" onclick="CampusLinkApp.handleOAuthLogin('apple', '${selectedRole}')" title="Direct login with Apple ID">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.93-2.85-.9.04-1.99.6-2.61 1.34-.55.63-.99 1.68-.86 2.69 1 .08 1.92-.43 2.54-1.18z" />
-                  </svg>
-                  <span>Apple</span>
-                </button>
-                <button type="button" class="social-btn" onclick="CampusLinkApp.handleOAuthLogin('microsoft', '${selectedRole}')" title="Direct login with Microsoft Entra / Office 365">
-                  <svg viewBox="0 0 24 24" width="18" height="18">
-                    <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
-                    <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
-                    <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
-                    <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
-                  </svg>
-                  <span>Microsoft</span>
+                <button class="auth-mode-btn ${isRegister ? 'active' : ''}" onclick="CampusLinkApp.navigateTo('#register')">
+                  New Registration
                 </button>
               </div>
-              <div class="auth-divider" style="display:flex; align-items:center; text-align:center; margin:16px 0 18px 0; color:var(--text-muted); font-size:12px;">
-                <div style="flex:1; height:1px; background:var(--border-color);"></div>
-                <span style="padding:0 12px; text-transform:uppercase; font-size:11px; letter-spacing:0.04em; font-weight:600;">or continue with email</span>
-                <div style="flex:1; height:1px; background:var(--border-color);"></div>
-              </div>
-            </div>
 
-            <!-- MODE TOGGLE TABS (SIGN IN vs SIGN UP) -->
-            <div class="auth-mode-switch">
-              <button class="auth-mode-btn ${!isRegister ? 'active' : ''}" onclick="CampusLinkApp.navigateTo('#login?role=${selectedRole}')">
-                Sign In
-              </button>
-              <button class="auth-mode-btn ${isRegister ? 'active' : ''}" onclick="CampusLinkApp.navigateTo('#register?role=${selectedRole}')">
-                New Registration
-              </button>
-            </div>
-
-            <!-- AUTH FORM -->
-            <form onsubmit="CampusLinkApp.handleAuthSubmit(event, '${selectedRole}', ${isRegister})">
               ${isRegister ? `
-                <div class="auth-form-group">
-                  <label class="auth-form-label">Full Name</label>
-                  <input type="text" id="auth-name" class="auth-form-input" placeholder="e.g. Aarav Sharma" required>
+                <!-- ROLE SELECTOR ONLY FOR REGISTRATION -->
+                <div style="margin-bottom:18px;">
+                  <label class="auth-form-label" style="margin-bottom:8px; font-size:12px;">Select Account Role</label>
+                  <div class="auth-role-tabs" style="margin-bottom:0;">
+                    <button type="button" class="auth-role-tab ${registerRole === 'student' ? 'active student' : ''}" onclick="CampusLinkApp.selectAuthRole('student', true)">
+                      <i data-lucide="graduation-cap" style="width:16px; height:16px;"></i>
+                      <span>Student</span>
+                    </button>
+                    <button type="button" class="auth-role-tab ${registerRole === 'recruiter' ? 'active recruiter' : ''}" onclick="CampusLinkApp.selectAuthRole('recruiter', true)">
+                      <i data-lucide="building-2" style="width:16px; height:16px;"></i>
+                      <span>Recruiter</span>
+                    </button>
+                    <button type="button" class="auth-role-tab ${registerRole === 'officer' ? 'active officer' : ''}" onclick="CampusLinkApp.selectAuthRole('officer', true)">
+                      <i data-lucide="shield-check" style="width:16px; height:16px;"></i>
+                      <span>Officer</span>
+                    </button>
+                  </div>
                 </div>
               ` : ''}
 
-              <div class="auth-form-group">
-                <label class="auth-form-label">Institutional / Official Email</label>
-                <input type="email" id="auth-email" class="auth-form-input" placeholder="${currentRole.demoEmail}" value="${!isRegister ? currentRole.demoEmail : ''}" required>
-              </div>
-
-              <div class="auth-form-group">
-                <label class="auth-form-label">${currentRole.idFieldLabel}</label>
-                <input type="text" id="auth-role-id" class="auth-form-input" placeholder="${currentRole.idPlaceholder}">
-              </div>
-
-              <!-- PASSWORD WITH VIEW EYE BUTTON -->
-              <div class="auth-form-group">
-                <label class="auth-form-label">Password</label>
-                <div style="position:relative; display:flex; align-items:center;">
-                  <input type="password" id="auth-password" class="auth-form-input" placeholder="••••••••••••" value="${!isRegister ? currentRole.demoPass : ''}" oninput="CampusLinkApp.handlePasswordInput(this.value)" required style="padding-right:42px;">
-                  <button type="button" class="auth-password-toggle-btn" onclick="CampusLinkApp.togglePasswordVisibility('auth-password', this)" title="Show/Hide Password" aria-label="Toggle password visibility">
-                    <i data-lucide="eye" style="width:18px; height:18px;"></i>
-                  </button>
-                </div>
-                <div class="password-meter">
-                  <div class="password-meter-bar">
-                    <div id="password-meter-fill" class="password-meter-fill" style="width:${!isRegister ? '100%' : '0%'}; background:${!isRegister ? '#10b981' : '#cbd5e1'};"></div>
+              <!-- AUTH FORM -->
+              <form onsubmit="CampusLinkApp.handleAuthSubmit(event, ${isRegister})">
+                ${isRegister ? `
+                  <div class="auth-form-group">
+                    <label class="auth-form-label">Full Name <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="auth-name" class="auth-form-input" placeholder="Full Name" required>
                   </div>
-                  <div id="password-meter-text" class="password-meter-text">${!isRegister ? 'Verified strong security' : 'Enter at least 8 characters'}</div>
-                </div>
-              </div>
+                ` : ''}
 
-              <!-- CAPTCHA SECURITY VERIFICATION OPTION -->
-              <div class="auth-form-group" style="margin-top:14px;">
-                <label class="auth-form-label">
-                  <span>Security Captcha</span>
-                  <span style="font-size:11px; color:#0284c7; text-transform:none; font-weight:600;">Case-insensitive</span>
-                </label>
-                <div class="captcha-box-container">
-                  <div id="captcha-display" class="captcha-visual-badge">
-                    ${CampusLinkApp.renderCaptchaVisual(CampusLinkApp.currentCaptcha)}
+                <div class="auth-form-group">
+                  <label class="auth-form-label">Email address <span style="color:#ef4444;">*</span></label>
+                  <input type="email" id="auth-email" class="auth-form-input" placeholder="Email address" autocomplete="email" required>
+                </div>
+
+                ${isRegister ? `
+                  <div class="auth-form-group">
+                    <label class="auth-form-label">${registerRole === 'student' ? 'College USN / Roll Number' : registerRole === 'recruiter' ? 'Company Name' : 'Institution / Department'} <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="auth-role-id" class="auth-form-input" placeholder="${registerRole === 'student' ? 'e.g. 1CL22CS042' : registerRole === 'recruiter' ? 'e.g. Acme Corp' : 'e.g. Placement Department'}" required>
                   </div>
-                  <button type="button" class="captcha-refresh-btn" onclick="CampusLinkApp.generateNewCaptcha()" title="Refresh Captcha Code">
-                    <i data-lucide="refresh-cw" style="width:14px; height:14px;"></i>
-                    <span>Refresh</span>
-                  </button>
+
+                  ${registerRole === 'student' ? `
+                    <div class="auth-form-group">
+                      <label class="auth-form-label">Academic Branch</label>
+                      <select id="auth-branch" class="auth-form-input">
+                        <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                        <option value="Information Science & Engineering">Information Science & Engineering</option>
+                        <option value="Electronics & Communication">Electronics & Communication</option>
+                        <option value="Electrical & Electronics">Electrical & Electronics</option>
+                        <option value="Mechanical Engineering">Mechanical Engineering</option>
+                        <option value="Master of Business Administration">MBA (Corporate Strategy)</option>
+                      </select>
+                    </div>
+                  ` : ''}
+                ` : ''}
+
+                <!-- PASSWORD -->
+                <div class="auth-form-group">
+                  <label class="auth-form-label">Password <span style="color:#ef4444;">*</span></label>
+                  <div style="position:relative; display:flex; align-items:center;">
+                    <input type="password" id="auth-password" class="auth-form-input" placeholder="Password" autocomplete="${isRegister ? 'new-password' : 'current-password'}" oninput="CampusLinkApp.handlePasswordInput(this.value)" required style="padding-right:42px;">
+                    <button type="button" class="auth-password-toggle-btn" onclick="CampusLinkApp.togglePasswordVisibility('auth-password', this)" title="Show/Hide Password" aria-label="Toggle password visibility">
+                      <i data-lucide="eye" style="width:18px; height:18px;"></i>
+                    </button>
+                  </div>
+                  <div class="password-meter">
+                    <div class="password-meter-bar">
+                      <div id="password-meter-fill" class="password-meter-fill" style="width:0%; background:#cbd5e1;"></div>
+                    </div>
+                    <div id="password-meter-text" class="password-meter-text">Enter at least 6 characters</div>
+                  </div>
                 </div>
-                <div style="margin-top:8px;">
-                  <input type="text" id="auth-captcha" class="auth-form-input" placeholder="Enter the 6-character captcha" maxlength="6" autocomplete="off" required>
+
+                <!-- CAPTCHA VERIFICATION -->
+                <div class="auth-form-group" style="margin-top:14px;">
+                  <label class="auth-form-label">
+                    <span>Security Captcha</span>
+                    <span style="font-size:11px; color:#0284c7; text-transform:none; font-weight:600;">Case-insensitive</span>
+                  </label>
+                  <div class="captcha-box-container">
+                    <div id="captcha-display" class="captcha-visual-badge">
+                      ${CampusLinkApp.renderCaptchaVisual(CampusLinkApp.currentCaptcha)}
+                    </div>
+                    <button type="button" class="captcha-refresh-btn" onclick="CampusLinkApp.generateNewCaptcha()" title="Refresh Captcha Code">
+                      <i data-lucide="refresh-cw" style="width:14px; height:14px;"></i>
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                  <div style="margin-top:8px;">
+                    <input type="text" id="auth-captcha" class="auth-form-input" placeholder="Enter captcha code" maxlength="6" autocomplete="off" required>
+                  </div>
                 </div>
+
+                <button type="submit" id="auth-submit-btn" class="btn btn-primary" style="width:100%; padding:12px; font-size:14.5px; justify-content:center; margin-top:16px;">
+                  <i data-lucide="${isRegister ? 'user-plus' : 'log-in'}" style="width:16px; height:16px;"></i>
+                  <span>${isRegister ? 'Complete Registration' : 'Sign In'}</span>
+                </button>
+              </form>
+
+              <!-- FOOTER INFO -->
+              <div style="text-align:center; margin-top:20px; font-size:12px; color:var(--text-muted);">
+                CAMPUSLINK Authentication Service
               </div>
-
-              <button type="submit" class="btn btn-primary" style="width:100%; padding:12px; font-size:14.5px; justify-content:center; margin-top:14px;">
-                <i data-lucide="${isRegister ? 'user-plus' : 'log-in'}" style="width:16px; height:16px;"></i>
-                <span>${isRegister ? 'Complete Registration' : `Sign In as ${currentRole.label}`}</span>
-              </button>
-            </form>
-
-<!-- Demo evaluation accounts section removed -->
-
-            <!-- FOOTER INFO -->
-            <div style="text-align:center; margin-top:20px; font-size:12px; color:var(--text-muted);">
-              Protected by Institutional Role-Based Access Control (RBAC) & Captcha Security.
             </div>
           </div>
         </div>
       </div>
-    </div>
-  `;
+    `;
 
     setTimeout(() => {
       if (window.lucide) window.lucide.createIcons();
@@ -2879,7 +3304,7 @@ const CampusLinkApp = {
     if (!val || val.length === 0) {
       fill.style.width = '0%';
       fill.style.backgroundColor = '#cbd5e1';
-      text.textContent = 'Enter at least 8 characters';
+      text.textContent = 'Enter at least 6 characters';
       return;
     }
 
@@ -2902,22 +3327,49 @@ const CampusLinkApp = {
       text.textContent = 'Good security';
     } else {
       fill.style.backgroundColor = '#10b981';
-      text.textContent = 'Strong institutional grade password';
+      text.textContent = 'Strong password';
     }
   },
 
-  handleAuthSubmit: async (e, role, isRegister) => {
+  handleAuthSubmit: async (e, isRegister) => {
     if (e && e.preventDefault) e.preventDefault();
 
-    const email = document.getElementById('auth-email') ? document.getElementById('auth-email').value.trim() : '';
-    const password = document.getElementById('auth-password') ? document.getElementById('auth-password').value : '';
-    const name = document.getElementById('auth-name') ? document.getElementById('auth-name').value.trim() : '';
-    const roleId = document.getElementById('auth-role-id') ? document.getElementById('auth-role-id').value.trim() : '';
-    const captchaInput = document.getElementById('auth-captcha') ? document.getElementById('auth-captcha').value.trim() : '';
+    const submitBtn = document.getElementById('auth-submit-btn');
+    const email = document.getElementById('auth-email')?.value.trim() || '';
+    const password = document.getElementById('auth-password')?.value || '';
+    const name = document.getElementById('auth-name')?.value.trim() || '';
+    const role = CampusLinkApp.selectedAuthRole || 'student';
+    const roleId = document.getElementById('auth-role-id')?.value.trim() || '';
+    const branch = document.getElementById('auth-branch')?.value.trim() || 'Computer Science & Engineering';
+    const captchaInput = document.getElementById('auth-captcha')?.value.trim() || '';
 
     if (!email || !password) {
       CampusLinkApp.showToast("Please provide both email and password.", "danger");
       return;
+    }
+
+    if (isRegister && !name) {
+      CampusLinkApp.showToast("Please enter your full name.", "warning");
+      document.getElementById('auth-name')?.focus();
+      return;
+    }
+
+    if (isRegister) {
+      if (role === 'student' && !roleId) {
+        CampusLinkApp.showToast("Please enter your College USN / Roll Number.", "warning");
+        document.getElementById('auth-role-id')?.focus();
+        return;
+      }
+      if (role === 'recruiter' && !roleId) {
+        CampusLinkApp.showToast("Please enter your Company / Organization Name.", "warning");
+        document.getElementById('auth-role-id')?.focus();
+        return;
+      }
+      if (role === 'officer' && !roleId) {
+        CampusLinkApp.showToast("Please enter your Institution Name / Department.", "warning");
+        document.getElementById('auth-role-id')?.focus();
+        return;
+      }
     }
 
     // Validate Captcha
@@ -2933,63 +3385,69 @@ const CampusLinkApp = {
       return;
     }
 
-    let res;
-    if (isRegister) {
-      res = await CampusLinkStore.registerUser({
-        name: name || 'New User',
-        email: email,
-        password: password,
-        role: role,
-        usn: role === 'student' ? roleId : undefined,
-        companyName: role === 'recruiter' ? roleId : undefined,
-        institutionName: role === 'officer' ? roleId : undefined
-      });
-    } else {
-      res = await CampusLinkStore.authenticate(email, password, role);
+    // Disable button & show loading state
+    let originalBtnHtml = '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      originalBtnHtml = submitBtn.innerHTML;
+      submitBtn.innerHTML = `
+        <span style="display:inline-block; width:15px; height:15px; border:2px solid rgba(255,255,255,0.4); border-top-color:#ffffff; border-radius:50%; animation:spin 0.8s linear infinite; margin-right:8px; vertical-align:middle;"></span>
+        <span>${isRegister ? 'Registering...' : 'Authenticating...'}</span>
+      `;
     }
 
-    if (res && res.success) {
-      CampusLinkApp.currentUser = res.user;
-      CampusLinkApp.activeRole = res.user.role;
-      const srcText = res.source === 'mysql' ? ' (MySQL Verified)' : '';
-      CampusLinkApp.showToast(`Welcome, ${res.user.name}! Authenticated as ${res.user.role.toUpperCase()}${srcText}`, "success");
-      CampusLinkApp.navigateTo(`#${res.user.role}/dashboard`);
-    } else {
-      CampusLinkApp.showToast(res.message || "Authentication failed.", "danger");
-    }
-  },
+    try {
+      if (isRegister) {
+        const res = await CampusLinkStore.registerUser({
+          name: name,
+          email: email,
+          password: password,
+          role: role,
+          usn: role === 'student' ? roleId : undefined,
+          branch: role === 'student' ? branch : undefined,
+          companyName: role === 'recruiter' ? roleId : undefined,
+          institutionName: role === 'officer' ? roleId : undefined
+        });
 
-  quickDemoLogin: async (role) => {
-    const res = await CampusLinkStore.authenticate('', '', role);
-    if (res && res.success) {
-      CampusLinkApp.currentUser = res.user;
-      CampusLinkApp.activeRole = res.user.role;
-      const srcText = res.source === 'mysql' ? ' (MySQL Verified)' : '';
-      CampusLinkApp.showToast(`Logged in as ${res.user.name} (${role.toUpperCase()})${srcText}`, "success");
-      CampusLinkApp.navigateTo(`#${res.user.role}/dashboard`);
-    }
-  },
+        if (res && res.success) {
+          CampusLinkApp.showToast("Registration successful! Please sign in with your credentials.", "success");
+          CampusLinkApp.navigateTo('#login');
+        } else {
+          CampusLinkApp.showToast(res.message || "Registration failed. Please check your details.", "danger");
+          CampusLinkApp.generateNewCaptcha();
+        }
+      } else {
+        // Central Login: API/Backend determines user and role
+        const res = await CampusLinkStore.authenticate(email, password);
+        if (res && res.success && res.user) {
+          CampusLinkApp.currentUser = res.user;
+          CampusLinkApp.activeRole = res.role;
+          CampusLinkApp.sessionValidated = true;
+          CampusLinkApp.showToast(`Welcome back, ${res.user.name}!`, "success");
 
-  handleOAuthLogin: async (provider, role) => {
-    const providerNames = {
-      google: 'Google Workspace Single Sign-On',
-      apple: 'Apple ID Direct Authentication',
-      microsoft: 'Microsoft Entra ID / Office 365'
-    };
-    const pName = providerNames[provider] || provider;
-    CampusLinkApp.showToast(`Initiating direct login with ${pName}...`, 'info');
-
-    // Simulate instant institutional single-sign-on handshake
-    setTimeout(async () => {
-      const targetRole = role || CampusLinkApp.selectedAuthRole || 'student';
-      const res = await CampusLinkStore.authenticate('', '', targetRole);
-      if (res && res.success) {
-        CampusLinkApp.currentUser = res.user;
-        CampusLinkApp.activeRole = res.user.role;
-        CampusLinkApp.showToast(`Authenticated via ${pName} as ${res.user.name} (${res.user.role.toUpperCase()})`, 'success');
-        CampusLinkApp.navigateTo(`#${res.user.role}/dashboard`);
+          // Redirection: check intended destination first
+          const intended = CampusLinkStore.getIntendedDestination();
+          CampusLinkStore.clearIntendedDestination();
+          if (intended && intended.startsWith(`#${res.role}/`)) {
+            CampusLinkApp.navigateTo(intended);
+          } else {
+            CampusLinkApp.navigateTo(CampusLinkApp.getDashboardRoute(res.role));
+          }
+        } else {
+          CampusLinkApp.showToast(res.message || "Unable to connect to the authentication service.", "danger");
+          CampusLinkApp.generateNewCaptcha();
+        }
       }
-    }, 600);
+    } catch (err) {
+      CampusLinkApp.showToast("Unable to connect to the authentication service.", "danger");
+      CampusLinkApp.generateNewCaptcha();
+    } finally {
+      if (submitBtn && originalBtnHtml) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHtml;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    }
   },
 
   // -------------------------------------------------------------
@@ -3016,11 +3474,11 @@ const CampusLinkApp = {
           <div class="page-actions">
             <button class="btn btn-secondary" onclick="CampusLinkApp.navigateTo('#student/resume')">
               <i data-lucide="file-text" style="width:16px; height:16px;"></i>
-              <span>ATS Resume (94%)</span>
+              <span>ATS Resume</span>
             </button>
             <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#student/jobs')">
               <i data-lucide="briefcase" style="width:16px; height:16px;"></i>
-              <span>Explore 6 Drives</span>
+              <span>Explore ${jobs.length} Drives</span>
             </button>
           </div>
         </div>
@@ -3029,13 +3487,13 @@ const CampusLinkApp = {
         <div class="ai-readiness-banner">
           <div class="readiness-score-dial">
             <div class="score-circle-outer">
-              <span class="score-number">${data.readinessData.overallScore}</span>
+              <span class="score-number">${data.readinessData && data.readinessData.overallScore ? data.readinessData.overallScore : '--'}</span>
             </div>
             <div>
               <div class="readiness-meta-title">CAMPUS READINESS INDEX</div>
-              <div class="readiness-status-tag">${data.readinessData.status}</div>
+              <div class="readiness-status-tag">${data.readinessData && data.readinessData.status ? data.readinessData.status : 'Pending Assessment'}</div>
               <p style="font-size:13px; color:#cbd5e1; max-width:480px;">
-                Your multi-vector score places you in the <strong>Top 3% of the 2026 Batch</strong>. You are pre-cleared for Tier-1 Super Dream drives.
+                ${data.readinessData && data.readinessData.overallScore ? 'Readiness score synthesized across academic record, coding accuracy, and interview evaluations.' : 'Complete your profile and assessments to calculate your readiness score.'}
               </p>
             </div>
           </div>
@@ -3066,7 +3524,7 @@ const CampusLinkApp = {
             <div>
               <div class="kpi-label">Active Applications</div>
               <div class="kpi-value">${apps.length}</div>
-              <div class="kpi-trend trend-up"><i data-lucide="trending-up" style="width:14px; height:14px;"></i> 1 Shortlisted</div>
+              <div class="kpi-trend trend-up"><i data-lucide="trending-up" style="width:14px; height:14px;"></i> ${apps.filter(a => a.status === 'Shortlisted').length} Shortlisted</div>
             </div>
             <div class="kpi-icon-wrapper kpi-icon-purple"><i data-lucide="send"></i></div>
           </div>
@@ -3075,7 +3533,7 @@ const CampusLinkApp = {
             <div>
               <div class="kpi-label">Upcoming Interviews</div>
               <div class="kpi-value">${ints.length}</div>
-              <div class="kpi-trend" style="color:#ef4444;"><i data-lucide="clock" style="width:14px; height:14px;"></i> Next: Tomorrow</div>
+              <div class="kpi-trend" style="color:${ints.length > 0 ? '#ef4444' : 'var(--text-muted)'};"><i data-lucide="clock" style="width:14px; height:14px;"></i> ${ints.length > 0 ? ints[0].date : 'No Upcoming'}</div>
             </div>
             <div class="kpi-icon-wrapper kpi-icon-cyan"><i data-lucide="calendar"></i></div>
           </div>
@@ -3083,8 +3541,8 @@ const CampusLinkApp = {
           <div class="kpi-card">
             <div>
               <div class="kpi-label">Offers Received</div>
-              <div class="kpi-value">1</div>
-              <div class="kpi-trend trend-up"><i data-lucide="award" style="width:14px; height:14px;"></i> ₹9.0 LPA Base</div>
+              <div class="kpi-value">${data.offers.length}</div>
+              <div class="kpi-trend trend-up"><i data-lucide="award" style="width:14px; height:14px;"></i> ${data.offers.length > 0 ? data.offers[0].ctc : '0 Active Offers'}</div>
             </div>
             <div class="kpi-icon-wrapper kpi-icon-green"><i data-lucide="gift"></i></div>
           </div>
@@ -3097,29 +3555,37 @@ const CampusLinkApp = {
             <!-- Top Recommended Jobs -->
             <div class="card" style="margin-bottom:24px;">
               <div class="card-header">
-                <div class="card-title">Top AI Recommended Jobs</div>
-                <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#student/jobs')">View All (6)</button>
+                <div class="card-title">Active Campus Opportunities</div>
+                <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#student/jobs')">View All (${jobs.length})</button>
               </div>
 
-              <div style="display:flex; flex-direction:column; gap:14px;">
-                ${jobs.slice(0, 3).map(j => `
-                  <div style="border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:16px; display:flex; align-items:center; justify-content:space-between; gap:14px;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                      <img src="${j.companyLogo}" style="width:36px; height:36px; border-radius:8px; object-fit:contain; border:1px solid var(--border-subtle);" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
-                      <div>
-                        <div style="font-weight:700; font-size:14.5px; color:var(--navy-900);">${j.title}</div>
-                        <div style="font-size:12.5px; color:var(--text-muted);">${j.company} • ${j.location} • <strong style="color:var(--brand-blue);">${j.ctc}</strong></div>
+              ${jobs.length === 0 ? `
+                <div style="padding:24px; text-align:center; color:var(--text-muted);">
+                  <i data-lucide="briefcase" style="width:36px; height:36px; margin-bottom:8px; color:var(--text-subtle);"></i>
+                  <div style="font-weight:700; color:var(--navy-900);">No active job openings.</div>
+                  <div style="font-size:12.5px; margin-top:4px;">Campus placement drives will appear here as soon as they are announced.</div>
+                </div>
+              ` : `
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                  ${jobs.slice(0, 3).map(j => `
+                    <div style="border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:16px; display:flex; align-items:center; justify-content:space-between; gap:14px;">
+                      <div style="display:flex; align-items:center; gap:12px;">
+                        <img src="${j.companyLogo}" style="width:36px; height:36px; border-radius:8px; object-fit:contain; border:1px solid var(--border-subtle);" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
+                        <div>
+                          <div style="font-weight:700; font-size:14.5px; color:var(--navy-900);">${j.title}</div>
+                          <div style="font-size:12.5px; color:var(--text-muted);">${j.company} • ${j.location} • <strong style="color:var(--brand-blue);">${j.ctc}</strong></div>
+                        </div>
+                      </div>
+                      <div style="display:flex; align-items:center; gap:12px;">
+                        ${j.aiMatchScore ? `<span class="badge badge-cyan" style="font-size:13px; font-weight:800;">${j.aiMatchScore}% Match</span>` : ''}
+                        <button class="btn ${j.applied ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="${j.applied ? "CampusLinkApp.navigateTo('#student/applications')" : `CampusLinkStore.applyForJob('${j.id}'); CampusLinkApp.handleRouteChange();`}">
+                          ${j.applied ? 'Track Application' : 'Apply Now'}
+                        </button>
                       </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:12px;">
-                      <span class="badge badge-cyan" style="font-size:13px; font-weight:800;">${j.aiMatchScore}% Match</span>
-                      <button class="btn ${j.applied ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="${j.applied ? "CampusLinkApp.navigateTo('#student/applications')" : `CampusLinkStore.applyForJob('${j.id}'); CampusLinkApp.handleRouteChange();`}">
-                        ${j.applied ? 'Track Application' : 'Apply Now'}
-                      </button>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
+                  `).join('')}
+                </div>
+              `}
             </div>
 
             <!-- Active Applications Summary -->
@@ -3129,28 +3595,34 @@ const CampusLinkApp = {
                 <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#student/applications')">Full Timeline</button>
               </div>
 
-              <div class="table-container">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Company</th>
-                      <th>Role</th>
-                      <th>Match Score</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${apps.map(a => `
+              ${apps.length === 0 ? `
+                <div style="padding:24px; text-align:center; color:var(--text-muted);">
+                  <i data-lucide="file-text" style="width:36px; height:36px; margin-bottom:8px; color:var(--text-subtle);"></i>
+                  <div style="font-weight:700; color:var(--navy-900);">No applications yet.</div>
+                  <div style="font-size:12.5px; margin-top:4px;">You have not submitted applications to any campus placement drives yet.</div>
+                </div>
+              ` : `
+                <div class="table-container">
+                  <table class="data-table">
+                    <thead>
                       <tr>
-                        <td style="font-weight:700; color:var(--navy-900);">${a.company}</td>
-                        <td>${a.role}</td>
-                        <td><span class="badge badge-info">${a.aiMatchScore}%</span></td>
-                        <td><span class="badge badge-${a.statusType}">${a.status}</span></td>
+                        <th>Company</th>
+                        <th>Role</th>
+                        <th>Status</th>
                       </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      ${apps.map(a => `
+                        <tr>
+                          <td style="font-weight:700; color:var(--navy-900);">${a.company}</td>
+                          <td>${a.role}</td>
+                          <td><span class="badge badge-${a.statusType}">${a.status}</span></td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              `}
             </div>
           </div>
 
@@ -3163,26 +3635,34 @@ const CampusLinkApp = {
                   <i data-lucide="video" style="width:18px; height:18px; color:var(--brand-blue);"></i>
                   <span>Upcoming Interview</span>
                 </div>
-                <span class="badge badge-danger">Tomorrow</span>
+                ${ints.length > 0 ? `<span class="badge badge-danger">${ints[0].date}</span>` : '<span class="badge badge-neutral">No Rounds</span>'}
               </div>
 
-              <div>
-                <div style="font-weight:800; font-size:16px; color:var(--navy-950); margin-bottom:4px;">Google India - SDE 1</div>
-                <div style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">Round 1: Advanced DSA & Problem Solving</div>
-                
-                <div style="background:#f8fafc; border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:12px; font-size:12.5px; margin-bottom:16px;">
-                  <div><strong>Time:</strong> 24 Sep 2026, 10:30 AM IST</div>
-                  <div><strong>Panel:</strong> Siddharth Verma (Staff Engineer)</div>
+              ${ints.length === 0 ? `
+                <div style="padding:16px 0; text-align:center; color:var(--text-muted);">
+                  <i data-lucide="calendar" style="width:32px; height:32px; margin-bottom:6px; color:var(--text-subtle);"></i>
+                  <div style="font-weight:700; color:var(--navy-900); font-size:13.5px;">No interviews scheduled.</div>
+                  <div style="font-size:12px; margin-top:2px;">Confirmed interview loops and links will appear here.</div>
                 </div>
+              ` : `
+                <div>
+                  <div style="font-weight:800; font-size:16px; color:var(--navy-950); margin-bottom:4px;">${ints[0].company} - ${ints[0].role}</div>
+                  <div style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">${ints[0].round}</div>
+                  
+                  <div style="background:#f8fafc; border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:12px; font-size:12.5px; margin-bottom:16px;">
+                    <div><strong>Time:</strong> ${ints[0].date}, ${ints[0].time}</div>
+                    <div><strong>Panel:</strong> ${ints[0].panel}</div>
+                  </div>
 
-                <div style="display:flex; gap:10px;">
-                  <a href="${ints[0].meetUrl}" target="_blank" class="btn btn-primary btn-sm" style="flex:1;">
-                    <i data-lucide="video" style="width:14px; height:14px;"></i>
-                    <span>Join Meet</span>
-                  </a>
-                  <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#student/interviews')">Prep Notes</button>
+                  <div style="display:flex; gap:10px;">
+                    <a href="${ints[0].meetUrl}" target="_blank" class="btn btn-primary btn-sm" style="flex:1;">
+                      <i data-lucide="video" style="width:14px; height:14px;"></i>
+                      <span>Join Meet</span>
+                    </a>
+                    <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#student/interviews')">Prep Notes</button>
+                  </div>
                 </div>
-              </div>
+              `}
             </div>
 
             <!-- Recent Notifications -->
@@ -3192,15 +3672,23 @@ const CampusLinkApp = {
                 <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#student/notifications')">View All</button>
               </div>
 
-              <div style="display:flex; flex-direction:column; gap:12px;">
-                ${data.notifications.slice(0, 3).map(n => `
-                  <div style="padding:10px 12px; background:#f8fafc; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
-                    <div style="font-weight:700; font-size:13px; color:var(--navy-900); margin-bottom:2px;">${n.title}</div>
-                    <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">${n.message}</div>
-                    <div style="font-size:10.5px; color:var(--text-subtle); margin-top:4px;">${n.time}</div>
-                  </div>
-                `).join('')}
-              </div>
+              ${data.notifications.length === 0 ? `
+                <div style="padding:16px 0; text-align:center; color:var(--text-muted); font-size:13px;">
+                  <i data-lucide="bell-off" style="width:24px; height:24px; margin-bottom:6px; color:var(--text-subtle);"></i>
+                  <div style="font-weight:700; color:var(--navy-900);">You're all caught up.</div>
+                  <div style="font-size:12px; margin-top:2px;">No unread placement notices.</div>
+                </div>
+              ` : `
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                  ${data.notifications.slice(0, 3).map(n => `
+                    <div style="padding:10px 12px; background:#f8fafc; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+                      <div style="font-weight:700; font-size:13px; color:var(--navy-900); margin-bottom:2px;">${n.title}</div>
+                      <div style="font-size:12px; color:var(--text-muted); line-height:1.4;">${n.message}</div>
+                      <div style="font-size:10.5px; color:var(--text-subtle); margin-top:4px;">${n.time}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
             </div>
           </div>
         </div>
@@ -3293,7 +3781,17 @@ const CampusLinkApp = {
     // -----------------------------------------------------------
     studentResume: () => {
       const data = CampusLinkStore.get();
-      const r = data.studentProfile.resumeDetails;
+      const r = data.studentProfile && data.studentProfile.resumeDetails ? data.studentProfile.resumeDetails : {
+        fileName: 'Resume_Pending_Upload.pdf',
+        fileSize: '0 KB',
+        lastUpdated: 'Not yet parsed',
+        atsScore: 0,
+        aiAnalysis: {
+          summary: 'Upload your verified resume to run the AI ATS compatibility analysis.',
+          strengths: ['Resume document pending upload'],
+          improvements: ['Upload standard PDF format containing academic and project history']
+        }
+      };
 
       return `
         <div class="page-header">
@@ -3527,11 +4025,23 @@ const CampusLinkApp = {
       const data = CampusLinkStore.get();
       const r = data.readinessData;
 
+      if (!r || !r.overallScore || r.overallScore === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Campus Readiness Score & Matrix</h1>
+              <p class="page-subtitle">Employability benchmark derived from code accuracy, CGPA, and live interviews</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('sparkles', 'Readiness Score Pending', 'Complete your profile and assessments to calculate your readiness score. Readiness analysis will appear once sufficient student data is available.', 'Complete Profile', () => CampusLinkApp.navigateTo('#student/profile'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
             <h1 class="page-title">Campus Readiness Score & Matrix</h1>
-            <p class="page-subtitle">Holistic 5-pillar employability benchmark derived from code accuracy, CGPA, and live interviews</p>
+            <p class="page-subtitle">Employability benchmark derived from code accuracy, CGPA, and live interviews</p>
           </div>
         </div>
 
@@ -3543,7 +4053,7 @@ const CampusLinkApp = {
             <div>
               <div class="readiness-meta-title">OVERALL READINESS STATUS</div>
               <div class="readiness-status-tag">${r.status}</div>
-              <p style="font-size:13px; color:#cbd5e1;">Meets or exceeds 100% of corporate cutoffs for Google, Microsoft, and Amazon.</p>
+              <p style="font-size:13px; color:#cbd5e1;">Readiness analysis synthesized across academic record, coding accuracy, and interview evaluations.</p>
             </div>
           </div>
         </div>
@@ -3599,7 +4109,19 @@ const CampusLinkApp = {
     // -----------------------------------------------------------
     studentSkillGap: () => {
       const data = CampusLinkStore.get();
-      const profile = data.skillGapProfiles[CampusLinkApp.selectedTargetRole] || data.skillGapProfiles["Full Stack Engineer"];
+      const profile = (data.skillGapProfiles && (data.skillGapProfiles[CampusLinkApp.selectedTargetRole] || data.skillGapProfiles["Full Stack Engineer"])) || null;
+
+      if (!profile || !profile.skills || profile.skills.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Target Role Skill Gap Visualizer</h1>
+              <p class="page-subtitle">Real-time delta analysis against corporate hiring requirements</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('compass', 'Select Target Role', 'Select a target role to analyse your current skill profile against placement criteria.', null, null)}
+        `;
+      }
 
       return `
         <div class="page-header">
@@ -3669,11 +4191,23 @@ const CampusLinkApp = {
       const data = CampusLinkStore.get();
       const jobs = data.jobs;
 
+      if (!jobs || jobs.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Campus Placement Opportunities</h1>
+              <p class="page-subtitle">Active campus job openings and placement drives</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('briefcase', 'No Active Job Openings', 'There are currently no active placement drives published for your batch.', 'Return to Dashboard', () => CampusLinkApp.navigateTo('#student/dashboard'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
             <h1 class="page-title">Campus Placement Opportunities</h1>
-            <p class="page-subtitle">AI-matched job openings with live eligibility screening</p>
+            <p class="page-subtitle">Active campus job openings and placement drives</p>
           </div>
         </div>
 
@@ -3739,7 +4273,19 @@ const CampusLinkApp = {
     // -----------------------------------------------------------
     studentJobDetails: (jobId) => {
       const data = CampusLinkStore.get();
-      const job = data.jobs.find(j => j.id === jobId) || data.jobs[0];
+      const job = data.jobs.find(j => j.id === jobId) || (data.jobs.length > 0 ? data.jobs[0] : null);
+      if (!job) {
+        return `
+          <div class="page-header">
+            <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#student/jobs')" style="margin-bottom:8px;">
+              <i data-lucide="arrow-left" style="width:14px; height:14px;"></i>
+              <span>Back to Job Listings</span>
+            </button>
+            <h1 class="page-title">Job Details</h1>
+          </div>
+          ${CampusLinkApp.renderEmptyState('briefcase', 'Job Not Found', 'The requested campus placement opening was not found or is no longer active.', 'View All Drives', () => CampusLinkApp.navigateTo('#student/jobs'))}
+        `;
+      }
 
       return `
         <div class="page-header">
@@ -3817,6 +4363,18 @@ const CampusLinkApp = {
       const data = CampusLinkStore.get();
       const apps = data.applications;
 
+      if (!apps || apps.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">My Placement Applications</h1>
+              <p class="page-subtitle">Live multi-stage recruitment pipeline tracker across active campus drives</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('file-text', 'No Applications Yet', 'You have not submitted applications to any campus drives yet.', 'Explore Open Drives', () => CampusLinkApp.navigateTo('#student/jobs'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
@@ -3864,11 +4422,23 @@ const CampusLinkApp = {
       const data = CampusLinkStore.get();
       const ints = data.interviews;
 
+      if (!ints || ints.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Interviews & Live Schedule</h1>
+              <p class="page-subtitle">Confirmed interview loops, meeting links, and preparation strategies</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('calendar', 'No Interviews Scheduled', 'There are no active or upcoming interview rounds scheduled for your profile.', 'View Applications', () => CampusLinkApp.navigateTo('#student/applications'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
             <h1 class="page-title">Interviews & Live Schedule</h1>
-            <p class="page-subtitle">Confirmed interview loops, meeting links, and personalized preparation strategies</p>
+            <p class="page-subtitle">Confirmed interview loops, meeting links, and preparation strategies</p>
           </div>
         </div>
 
@@ -3929,6 +4499,24 @@ const CampusLinkApp = {
       const data = CampusLinkStore.get();
       const docs = data.documents;
 
+      if (!docs || docs.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Document Verification Vault</h1>
+              <p class="page-subtitle">Academic grade cards, bonafide approvals, and certificates verified by the placement office</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" onclick="CampusLinkApp.showToast('Document upload dialog opened.', 'info')">
+                <i data-lucide="upload" style="width:16px; height:16px;"></i>
+                <span>Upload Document</span>
+              </button>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('folder', 'No Documents Uploaded', 'Your document vault is currently empty. Upload transcripts and certificates for verification.', 'Upload Document', () => CampusLinkApp.showToast('Document upload dialog opened.', 'info'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
@@ -3982,6 +4570,18 @@ const CampusLinkApp = {
     studentOffers: () => {
       const data = CampusLinkStore.get();
       const offers = data.offers;
+
+      if (!offers || offers.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Offer Letters & Placement Selection</h1>
+              <p class="page-subtitle">Official selection letters and compensation breakdowns</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('award', 'No Offers Recorded', 'Official selection letters and corporate offer letters will appear here once released by recruiters.', null, null)}
+        `;
+      }
 
       return `
         <div class="page-header">
@@ -4055,7 +4655,8 @@ const CampusLinkApp = {
             ${nts.length === 0 ? `
               <div style="text-align:center; padding:40px 20px; color:var(--text-muted);">
                 <i data-lucide="bell-off" style="width:36px; height:36px; color:#94a3b8; margin-bottom:8px;"></i>
-                <div>No notifications at this moment.</div>
+                <div style="font-weight:700; color:var(--navy-900);">You're all caught up.</div>
+                <div style="font-size:12px; margin-top:2px;">No unread placement notices or announcements.</div>
               </div>
             ` : nts.map(n => `
               <div style="padding:16px; border-radius:var(--radius-md); border:1px solid ${n.unread ? '#bfdbfe' : 'var(--border-subtle)'}; background:${n.unread ? '#f0f7ff' : '#ffffff'}; display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
@@ -4106,8 +4707,8 @@ const CampusLinkApp = {
           <div class="kpi-card">
             <div>
               <div class="kpi-label">Active Campus Postings</div>
-              <div class="kpi-value">2</div>
-              <div class="kpi-trend trend-up">SDE-1 & Cloud</div>
+              <div class="kpi-value">${data.jobs.length}</div>
+              <div class="kpi-trend trend-up">${data.jobs.length > 0 ? 'Active Openings' : 'No Openings'}</div>
             </div>
             <div class="kpi-icon-wrapper kpi-icon-blue"><i data-lucide="briefcase"></i></div>
           </div>
@@ -4115,17 +4716,17 @@ const CampusLinkApp = {
           <div class="kpi-card">
             <div>
               <div class="kpi-label">Total Applicants</div>
-              <div class="kpi-value">142</div>
-              <div class="kpi-trend trend-up">114 Eligible</div>
+              <div class="kpi-value">${data.applications.length}</div>
+              <div class="kpi-trend trend-up">${data.applications.length} Registered</div>
             </div>
             <div class="kpi-icon-wrapper kpi-icon-purple"><i data-lucide="users"></i></div>
           </div>
 
           <div class="kpi-card">
             <div>
-              <div class="kpi-label">AI Shortlisted (Top Tier)</div>
-              <div class="kpi-value">28</div>
-              <div class="kpi-trend trend-up">Score > 85%</div>
+              <div class="kpi-label">Shortlisted Candidates</div>
+              <div class="kpi-value">${data.candidates ? data.candidates.filter(c => c.shortlisted).length : 0}</div>
+              <div class="kpi-trend trend-up">Current Pool</div>
             </div>
             <div class="kpi-icon-wrapper kpi-icon-cyan"><i data-lucide="sparkles"></i></div>
           </div>
@@ -4133,81 +4734,84 @@ const CampusLinkApp = {
           <div class="kpi-card">
             <div>
               <div class="kpi-label">Confirmed Interviews</div>
-              <div class="kpi-value">18</div>
-              <div class="kpi-trend" style="color:#2563eb;">Round 1 Tomorrow</div>
+              <div class="kpi-value">${data.interviews.length}</div>
+              <div class="kpi-trend" style="color:#2563eb;">${data.interviews.length > 0 ? 'In Progress' : 'No Rounds'}</div>
             </div>
             <div class="kpi-icon-wrapper kpi-icon-green"><i data-lucide="video"></i></div>
           </div>
         </div>
 
-        <!-- RECRUITMENT FUNNEL & CANDIDATE LIST -->
-        <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:24px;">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">Hiring Funnel Progression</div>
+        ${(!data.jobs || data.jobs.length === 0) && (!data.candidates || data.candidates.length === 0) ? `
+          ${CampusLinkApp.renderEmptyState('briefcase', 'No Active Placement Drives', 'You have not configured any job openings or interview drives for this hiring cycle.', 'Create Job Opening', () => CampusLinkApp.navigateTo('#recruiter/create-job'))}
+        ` : `
+          <!-- RECRUITMENT FUNNEL & CANDIDATE LIST -->
+          <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:24px;">
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">Hiring Funnel Progression</div>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                    <span style="font-weight:700;">1. Total Applications</span>
+                    <strong>${data.applications.length}</strong>
+                  </div>
+                  <div style="height:10px; background:#f1f5f9; border-radius:var(--radius-full); overflow:hidden;">
+                    <div style="height:100%; width:100%; background:#2563eb;"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                    <span style="font-weight:700;">2. Minimum Cutoff Passed</span>
+                    <strong>${data.applications.length}</strong>
+                  </div>
+                  <div style="height:10px; background:#f1f5f9; border-radius:var(--radius-full); overflow:hidden;">
+                    <div style="height:100%; width:100%; background:#06b6d4;"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                    <span style="font-weight:700;">3. Shortlisted</span>
+                    <strong>${data.candidates ? data.candidates.filter(c => c.shortlisted).length : 0}</strong>
+                  </div>
+                  <div style="height:10px; background:#f1f5f9; border-radius:var(--radius-full); overflow:hidden;">
+                    <div style="height:100%; width:50%; background:#8b5cf6;"></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                    <span style="font-weight:700;">4. Technical Interviews Loop</span>
+                    <strong>${data.interviews.length}</strong>
+                  </div>
+                  <div style="height:10px; background:#f1f5f9; border-radius:var(--radius-full); overflow:hidden;">
+                    <div style="height:100%; width:${data.interviews.length > 0 ? 100 : 0}%; background:#10b981;"></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div style="display:flex; flex-direction:column; gap:12px;">
-              <div>
-                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-                  <span style="font-weight:700;">1. Total Batch Registrations</span>
-                  <strong>142 (100%)</strong>
-                </div>
-                <div style="height:10px; background:#f1f5f9; border-radius:var(--radius-full); overflow:hidden;">
-                  <div style="height:100%; width:100%; background:#2563eb;"></div>
-                </div>
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">Campus Drive Schedule</div>
               </div>
 
-              <div>
-                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-                  <span style="font-weight:700;">2. Minimum Cutoff Passed (CGPA 8.0+)</span>
-                  <strong>114 (80.2%)</strong>
-                </div>
-                <div style="height:10px; background:#f1f5f9; border-radius:var(--radius-full); overflow:hidden;">
-                  <div style="height:100%; width:80.2%; background:#06b6d4;"></div>
-                </div>
+              <div style="font-size:13.5px; color:var(--text-main); line-height:1.6;">
+                <strong>Venue:</strong> Auditorium & Virtual Suites<br>
+                <strong>Active Openings:</strong> ${data.jobs.length} Postings<br>
+                <strong>Scheduled Loops:</strong> ${data.interviews.length} Sessions
               </div>
 
-              <div>
-                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-                  <span style="font-weight:700;">3. AI Multi-Vector Ranked & Shortlisted</span>
-                  <strong>28 (19.7%)</strong>
-                </div>
-                <div style="height:10px; background:#f1f5f9; border-radius:var(--radius-full); overflow:hidden;">
-                  <div style="height:100%; width:19.7%; background:#8b5cf6;"></div>
-                </div>
-              </div>
-
-              <div>
-                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-                  <span style="font-weight:700;">4. Technical Interviews Loop</span>
-                  <strong>18 (12.6%)</strong>
-                </div>
-                <div style="height:10px; background:#f1f5f9; border-radius:var(--radius-full); overflow:hidden;">
-                  <div style="height:100%; width:12.6%; background:#10b981;"></div>
-                </div>
+              <div style="margin-top:20px; display:flex; gap:10px;">
+                <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="CampusLinkApp.navigateTo('#recruiter/scheduler')">View Calendar</button>
+                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="CampusLinkApp.navigateTo('#recruiter/jobs')">Manage Postings</button>
               </div>
             </div>
           </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">Upcoming Campus Drive</div>
-              <span class="badge badge-success">05 Oct 2026</span>
-            </div>
-
-            <div style="font-size:13.5px; color:var(--text-main); line-height:1.6;">
-              <strong>Venue:</strong> Auditorium Block A & Virtual Suite<br>
-              <strong>Target Openings:</strong> 18 Full-time SDE-1<br>
-              <strong>Assigned Panels:</strong> 6 Staff Engineers
-            </div>
-
-            <div style="margin-top:20px; display:flex; gap:10px;">
-              <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="CampusLinkApp.navigateTo('#recruiter/scheduler')">View Calendar</button>
-              <button class="btn btn-primary btn-sm" style="flex:1;" onclick="CampusLinkApp.navigateTo('#recruiter/ai-matching')">Rank Batch</button>
-            </div>
-          </div>
-        </div>
+        `}
       `;
     },
 
@@ -4217,6 +4821,18 @@ const CampusLinkApp = {
     recruiterAIMatching: () => {
       const data = CampusLinkStore.get();
       const pool = data.aiMatchingPool;
+
+      if (!pool || pool.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">AI Candidate Matching & Ranking Engine</h1>
+              <p class="page-subtitle">Multi-vector ranking evaluating DSA, CGPA, projects, and interview consistency</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('sparkles', 'Matching Analysis Is Currently Unavailable', 'AI candidate matching requires active job criteria and an eligible candidate batch to analyze.', 'Select Job Opening', () => CampusLinkApp.navigateTo('#recruiter/jobs'))}
+        `;
+      }
 
       return `
         <div class="page-header">
@@ -4373,11 +4989,23 @@ const CampusLinkApp = {
       const data = CampusLinkStore.get();
       const sched = data.schedulerState;
 
+      if (!sched || !sched.slots || sched.slots.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Drive Scheduler & Conflict Engine</h1>
+              <p class="page-subtitle">Real-time candidate overlap detection, venue allocation, and conflict resolution</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('calendar', 'No Drive Slots Scheduled', 'There are no active drive schedules configured for this session.', 'Schedule Drive', () => CampusLinkApp.navigateTo('#recruiter/jobs'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
             <h1 class="page-title">Drive Scheduler & Conflict Engine</h1>
-            <p class="page-subtitle">Real-time candidate overlap detection, venue allocation, and 1-click AI resolution</p>
+            <p class="page-subtitle">Real-time candidate overlap detection, venue allocation, and conflict resolution</p>
           </div>
         </div>
 
@@ -4493,7 +5121,26 @@ const CampusLinkApp = {
 
     recruiterJobs: () => {
       const data = CampusLinkStore.get();
-      const jobs = data.jobs.filter(j => j.company.includes('Google') || true);
+      const jobs = data.jobs;
+
+      if (!jobs || jobs.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Active Campus Postings</h1>
+              <p class="page-subtitle">Manage campus openings, configure cutoff benchmarks, and track applicant pools</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#recruiter/create-job')">
+                <i data-lucide="plus" style="width:16px; height:16px;"></i>
+                <span>Create Job</span>
+              </button>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('briefcase', 'No Active Job Openings', 'You have not published any job openings for campus placement yet.', 'Create Job', () => CampusLinkApp.navigateTo('#recruiter/create-job'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
@@ -4503,7 +5150,7 @@ const CampusLinkApp = {
           <div class="page-actions">
             <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#recruiter/create-job')">
               <i data-lucide="plus" style="width:16px; height:16px;"></i>
-              <span>Create New Posting</span>
+              <span>Create Job</span>
             </button>
           </div>
         </div>
@@ -4549,11 +5196,24 @@ const CampusLinkApp = {
     recruiterCandidates: () => {
       const data = CampusLinkStore.get();
       const list = data.studentsDirectory;
+
+      if (!list || list.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Candidate Pool & Directory</h1>
+              <p class="page-subtitle">Registered student candidates eligible for placement drives</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('users', 'No Candidates Found', 'There are currently no candidates registered in the applicant pool.', null, null)}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
             <h1 class="page-title">Candidate Pool & Directory</h1>
-            <p class="page-subtitle">Batch of 2026 registered candidates eligible for Google technical drives</p>
+            <p class="page-subtitle">Registered student candidates eligible for placement drives</p>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" onclick="CampusLinkApp.showToast('Exporting candidate profiles to Excel...', 'success')">
@@ -4615,6 +5275,25 @@ const CampusLinkApp = {
 
     recruiterDrives: () => {
       const drvs = CampusLinkStore.get().drives;
+
+      if (!drvs || drvs.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Placement Drive Operations</h1>
+              <p class="page-subtitle">Manage drive dates, room allocations, test links, and student attendance rosters</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" onclick="CampusLinkApp.navigateTo('#recruiter/create-job')">
+                <i data-lucide="calendar-plus" style="width:16px; height:16px;"></i>
+                <span>Schedule Drive</span>
+              </button>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('calendar', 'No Placement Drives Scheduled', 'There are no active or upcoming placement drives scheduled.', 'Schedule Drive', () => CampusLinkApp.navigateTo('#recruiter/create-job'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
@@ -4661,6 +5340,19 @@ const CampusLinkApp = {
     recruiterOffers: () => CampusLinkApp.views.officerOffers(),
 
     recruiterAnalytics: () => {
+      const data = CampusLinkStore.get();
+      if (!data.jobs || data.jobs.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Hiring Analytics & Conversion Funnel</h1>
+              <p class="page-subtitle">Candidate conversion yield across screening, coding assessments, and interview loops</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('bar-chart-2', 'Not Enough Placement Data', 'Not enough placement data to generate this report. Analytics will populate once active drives and applicant pipelines are initiated.', 'Create Job Opening', () => CampusLinkApp.navigateTo('#recruiter/create-job'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
@@ -4836,7 +5528,7 @@ const CampusLinkApp = {
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:16px 0;">
             <div>
               <label style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Current Password</label>
-              <input type="password" class="table-search-input" style="width:100%; margin-top:4px;" value="password123">
+              <input type="password" class="table-search-input" style="width:100%; margin-top:4px;" placeholder="Current password">
             </div>
             <div>
               <label style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">New Password</label>
@@ -4861,11 +5553,29 @@ const CampusLinkApp = {
       const stats = data.officerDashboardStats;
       const branches = data.branchAnalytics;
 
+      if (!stats || !branches || branches.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Placement Command Center</h1>
+              <p class="page-subtitle">Academic Session: ${CampusLinkApp.CURRENT_ACADEMIC_SESSION} • Placement Performance Command</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary" onclick="CampusLinkApp.navigateTo('#officer/reports')">
+                <i data-lucide="file-spreadsheet" style="width:16px; height:16px;"></i>
+                <span>Institutional Reports</span>
+              </button>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('bar-chart-3', 'No Placement Data Available Yet', 'Institutional placement records, branch conversions, and package analytics will appear once placement drives commence for the current academic session.', 'Manage Placement Drives', () => CampusLinkApp.navigateTo('#officer/drives'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
             <h1 class="page-title">Placement Command Center</h1>
-            <p class="page-subtitle">National Institute of Technology • 2026 Placement Performance Command</p>
+            <p class="page-subtitle">Academic Session: ${CampusLinkApp.CURRENT_ACADEMIC_SESSION} • Placement Performance Command</p>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" onclick="CampusLinkApp.navigateTo('#officer/reports')">
@@ -4959,7 +5669,19 @@ const CampusLinkApp = {
     // -----------------------------------------------------------
     officerRiskPrediction: () => {
       const data = CampusLinkStore.get();
-      const highRisk = data.riskPrediction.highRisk;
+      const highRisk = data.riskPrediction && data.riskPrediction.highRisk ? data.riskPrediction.highRisk : [];
+
+      if (!highRisk || highRisk.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Predictive Risk & Intervention Matrix</h1>
+              <p class="page-subtitle">Early risk detection identifying students needing remedial algorithmic training before Tier-2 cycles</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('shield-alert', 'Prediction Requires Historical Placement Data', 'AI risk prediction models require historical assessment and placement records to identify at-risk student cohorts.', null, null)}
+        `;
+      }
 
       return `
         <div class="page-header">
@@ -5006,11 +5728,23 @@ const CampusLinkApp = {
       const data = CampusLinkStore.get();
       const list = data.studentsDirectory;
 
+      if (!list || list.length === 0) {
+        return `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">Master Student Directory</h1>
+              <p class="page-subtitle">Academic Session: ${CampusLinkApp.CURRENT_ACADEMIC_SESSION}</p>
+            </div>
+          </div>
+          ${CampusLinkApp.renderEmptyState('users', 'No Students Found', 'There are no students registered in the institutional placement directory.', 'Add Student', () => CampusLinkApp.showToast('Student registration modal will connect to institutional SIS API.', 'info'))}
+        `;
+      }
+
       return `
         <div class="page-header">
           <div>
             <h1 class="page-title">Master Student Directory</h1>
-            <p class="page-subtitle">Batch of 2026 • 680 Total Candidates</p>
+            <p class="page-subtitle">Academic Session: ${CampusLinkApp.CURRENT_ACADEMIC_SESSION} • ${list.length} Candidates</p>
           </div>
         </div>
 
@@ -5045,7 +5779,19 @@ const CampusLinkApp = {
 
     officerStudentDetails: () => {
       const data = CampusLinkStore.get();
-      const st = data.studentsDirectory[0];
+      const st = data.studentsDirectory && data.studentsDirectory.length > 0 ? data.studentsDirectory[0] : null;
+      if (!st) {
+        return `
+          <div class="page-header">
+            <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#officer/students')" style="margin-bottom:8px;">
+              <i data-lucide="arrow-left" style="width:14px; height:14px;"></i>
+              <span>Back to Student Directory</span>
+            </button>
+            <h1 class="page-title">Student 360° Dossier</h1>
+          </div>
+          ${CampusLinkApp.renderEmptyState('user-x', 'Student Record Not Found', 'No student details available for this record.', 'Back to Directory', () => CampusLinkApp.navigateTo('#officer/students'))}
+        `;
+      }
       const p = data.studentProfile;
       return `
         <div class="page-header">
@@ -5121,6 +5867,12 @@ const CampusLinkApp = {
     },
     officerRecruiters: () => {
       const recs = CampusLinkStore.get().recruitersDirectory;
+      if (!recs || recs.length === 0) {
+        return `
+          <div class="page-header"><h1 class="page-title">Recruiter Directory & Tier Partners</h1></div>
+          ${CampusLinkApp.renderEmptyState('building-2', 'No Recruiters Registered', 'No corporate recruiter accounts are currently associated with the placement portal.', 'Invite Recruiter', () => CampusLinkApp.showToast('Corporate invitation dispatch will connect to partner API.', 'info'))}
+        `;
+      }
       return `
         <div class="page-header"><h1 class="page-title">Recruiter Directory & Tier Partners</h1></div>
         <div class="table-container">
@@ -5138,6 +5890,12 @@ const CampusLinkApp = {
     officerAIMatching: () => CampusLinkApp.views.recruiterAIMatching(),
     officerDrives: () => {
       const drvs = CampusLinkStore.get().drives;
+      if (!drvs || drvs.length === 0) {
+        return `
+          <div class="page-header"><h1 class="page-title">Master Placement Drives</h1></div>
+          ${CampusLinkApp.renderEmptyState('calendar', 'No Placement Drives Scheduled', 'There are no placement drives currently scheduled for the academic session.', 'Schedule Drive', () => CampusLinkApp.navigateTo('#officer/scheduler'))}
+        `;
+      }
       return `
         <div class="page-header"><h1 class="page-title">Master Placement Drives</h1></div>
         <div class="table-container">
@@ -5154,6 +5912,12 @@ const CampusLinkApp = {
     officerInterviews: () => CampusLinkApp.views.studentInterviews(),
     officerOffers: () => {
       const off = CampusLinkStore.get().offers;
+      if (!off || off.length === 0) {
+        return `
+          <div class="page-header"><h1 class="page-title">Master Offers Registry</h1></div>
+          ${CampusLinkApp.renderEmptyState('award', 'No Offers Recorded', 'No corporate placement offers have been logged in the institutional database yet.', null, null)}
+        `;
+      }
       return `
         <div class="page-header"><h1 class="page-title">Master Offers Registry</h1></div>
         <div class="table-container">
@@ -5168,6 +5932,12 @@ const CampusLinkApp = {
     },
     officerDocuments: () => {
       const q = CampusLinkStore.get().documentVerificationQueue;
+      if (!q || q.length === 0) {
+        return `
+          <div class="page-header"><h1 class="page-title">Institutional Document Verification Desk</h1></div>
+          ${CampusLinkApp.renderEmptyState('check-circle-2', 'No Pending Documents', 'All student credentials, grade cards, and bonafide records are verified and up to date.', null, null)}
+        `;
+      }
       return `
         <div class="page-header"><h1 class="page-title">Institutional Document Verification Desk</h1></div>
         <div class="table-container">
@@ -5191,25 +5961,30 @@ const CampusLinkApp = {
     officerAnalytics: () => CampusLinkApp.views.officerDashboard(),
     officerNotifications: () => CampusLinkApp.views.studentNotifications(),
     officerReports: () => {
+      const data = CampusLinkStore.get();
+      const hasData = data.branchAnalytics && data.branchAnalytics.length > 0;
+
       return `
         <div class="page-header">
           <div>
-            <h1 class="page-title">Institutional Compliance & NAAC / NIRF Placement Reports</h1>
-            <p class="page-subtitle">Accreditation-grade reports with verified statistical distribution and corporate conversion</p>
+            <h1 class="page-title">Institutional Reporting & Placement Analytics</h1>
+            <p class="page-subtitle">Academic Session: ${CampusLinkApp.CURRENT_ACADEMIC_SESSION} • NIRF, NAAC, and Accreditation Reporting</p>
           </div>
           <div class="page-actions">
             <button class="btn btn-secondary" onclick="window.print()">
               <i data-lucide="printer" style="width:16px; height:16px;"></i>
               <span>Print Dossier</span>
             </button>
-            <button class="btn btn-primary" onclick="CampusLinkApp.showReportExportModal('NAAC Criterion V Placement Report')">
+            <button class="btn btn-primary" onclick="CampusLinkApp.showReportExportModal('Institutional Placement Report')">
               <i data-lucide="file-spreadsheet" style="width:16px; height:16px;"></i>
               <span>Generate & Export Dossier</span>
             </button>
           </div>
         </div>
 
-        <div class="kpi-grid">
+        ${!hasData ? `
+          ${CampusLinkApp.renderEmptyState('file-spreadsheet', 'No Institutional Data Available', 'Institutional placement records and accreditation data will populate once placement drives and student progression records are synced.', null, null)}
+        ` : `
           <div class="kpi-card">
             <div>
               <div class="kpi-label">Graduating Batch Strength</div>
@@ -5315,6 +6090,7 @@ const CampusLinkApp = {
             </div>
           </div>
         </div>
+        `}
       `;
     },
 
@@ -5430,7 +6206,7 @@ const CampusLinkApp = {
             </div>
             <div>
               <label style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Accreditation Academic Year</label>
-              <input type="text" class="table-search-input" style="width:100%; margin-top:4px;" value="2025 - 2026">
+              <input type="text" class="table-search-input" style="width:100%; margin-top:4px;" value="${CampusLinkApp.CURRENT_ACADEMIC_SESSION}">
             </div>
           </div>
 
@@ -5447,4 +6223,13 @@ const CampusLinkApp = {
 };
 
 // Auto initialize on DOM ready
-document.addEventListener('DOMContentLoaded', CampusLinkApp.init);
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('DOMContentLoaded', CampusLinkApp.init);
+}
+
+if (typeof window !== 'undefined') {
+  window.CampusLinkApp = CampusLinkApp;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = CampusLinkApp;
+}

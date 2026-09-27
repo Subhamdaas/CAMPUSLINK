@@ -95,15 +95,10 @@
           </div>
         </div>
 
-        <!-- Right: Authenticated User Info, Notifications, Logout -->
+        <!-- Right: Authenticated User Info, Notifications, Single User Menu with Logout -->
         <div class="header-right">
-          <!-- Active Role Verified Badge -->
-          <div id="header-role-badge-container">
-            <span class="badge badge-info" id="header-user-role-badge" style="font-size:12px; font-weight:700; padding:5px 12px;">Student Portal</span>
-          </div>
-
           <!-- Notification Bell with Dynamic Unread Badge -->
-          <button class="header-icon-btn" onclick="CampusLinkApp.navigateToNotifications()" title="Notifications" id="header-notification-btn">
+          <button class="header-icon-btn" onclick="CampusLinkApp.navigateToNotifications()" title="Notifications" id="header-notification-btn" aria-label="Notifications">
             <i data-lucide="bell" style="width:17px; height:17px;"></i>
             <span class="notification-badge" id="header-notification-badge" style="display:none;">0</span>
           </button>
@@ -114,15 +109,43 @@
           </button>
 
           <!-- Placement AI Help -->
-          <button class="header-icon-btn" onclick="CampusLinkApp.toggleAIAssistant()" title="CampusLink AI Assistant" id="header-ai-btn">
+          <button class="header-icon-btn" onclick="CampusLinkApp.toggleAIAssistant()" title="CampusLink AI Assistant" id="header-ai-btn" aria-label="AI Assistant">
             <i data-lucide="sparkles" style="width:17px; height:17px; color:#2563eb;"></i>
           </button>
 
-          <!-- Explicit Logout Button -->
-          <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.handleLogout()" title="Log out of session" style="color:#991b1b; border-color:#fecaca; background:#fff1f2;">
-            <i data-lucide="log-out" style="width:14px; height:14px;"></i>
-            <span>Log Out</span>
-          </button>
+          <!-- ONE Central Top-Right User Control [ Avatar / Name ▼ ] -->
+          <div class="user-menu-container" id="header-user-menu-container">
+            <button class="user-menu-btn" id="header-user-menu-btn" onclick="CampusLinkApp.toggleUserMenu(event)" aria-expanded="false" aria-haspopup="true" title="User Menu">
+              <img id="header-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="User Avatar" class="user-avatar-sm">
+              <div class="user-menu-info">
+                <span id="header-user-name" class="user-menu-name">User</span>
+                <span id="header-user-role" class="user-menu-role">Portal</span>
+              </div>
+              <i data-lucide="chevron-down" style="width:14px; height:14px; color:var(--text-muted);"></i>
+            </button>
+
+            <!-- Dropdown: Profile, Settings, ONE Central Logout -->
+            <div class="user-menu-dropdown" id="header-user-dropdown">
+              <div class="user-dropdown-header">
+                <div id="dropdown-user-name" style="font-weight:700; font-size:13.5px; color:var(--text-primary);">User Name</div>
+                <div id="dropdown-user-role" style="font-size:11.5px; color:var(--text-muted);">Role</div>
+              </div>
+              <div class="user-dropdown-divider"></div>
+              <button type="button" onclick="CampusLinkApp.navigateToProfile()" class="user-dropdown-item">
+                <i data-lucide="user" style="width:15px; height:15px;"></i>
+                <span>Profile</span>
+              </button>
+              <button type="button" onclick="CampusLinkApp.navigateToSettings()" class="user-dropdown-item">
+                <i data-lucide="settings" style="width:15px; height:15px;"></i>
+                <span>Settings</span>
+              </button>
+              <div class="user-dropdown-divider"></div>
+              <button type="button" onclick="CampusLinkApp.handleLogout()" class="user-dropdown-item logout-item">
+                <i data-lucide="log-out" style="width:15px; height:15px;"></i>
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -136,9 +159,9 @@
   </div>
 
   <!-- FLOATING GLOBAL AI ASSISTANT BUTTON -->
-  <button id="ai-assistant-fab" onclick="CampusLinkApp.toggleAIAssistant()">
+  <button id="ai-assistant-fab" onclick="CampusLinkApp.toggleAIAssistant()" title="Open Placement AI Assistant">
     <i data-lucide="bot" style="width:20px; height:20px;"></i>
-    <span>Placement AI</span>
+    <span>Placement AI Assistant</span>
   </button>
 
   <!-- SLIDE-OVER AI ASSISTANT DRAWER -->
@@ -149,18 +172,18 @@
           <i data-lucide="sparkles" style="width:18px; height:18px; color:white;"></i>
         </div>
         <div>
-          <div style="font-weight:700; font-size:15px;">CampusLink AI Assistant</div>
-          <div style="font-size:11px; color:#93c5fd;">Active Placement Copilot</div>
+          <div style="font-weight:700; font-size:15px;">Placement AI Assistant</div>
+          <div style="font-size:11px; color:#93c5fd;">Institutional Assistant</div>
         </div>
       </div>
-      <button onclick="CampusLinkApp.toggleAIAssistant()" style="background:none; border:none; color:#cbd5e1; cursor:pointer;">
+      <button onclick="CampusLinkApp.toggleAIAssistant()" style="background:none; border:none; color:#cbd5e1; cursor:pointer;" aria-label="Close Assistant">
         <i data-lucide="x" style="width:20px; height:20px;"></i>
       </button>
     </div>
     
     <div class="ai-drawer-body" id="ai-chat-messages">
       <div class="chat-bubble assistant">
-        <strong>Hello Aarav!</strong> I'm your placement copilot. I can analyze your readiness score, suggest tailored prep plans for Google/Amazon, or clarify drive eligibility. How can I help you today?
+        <strong>Placement AI Assistant:</strong> Welcome to CAMPUSLINK. The Placement AI Assistant is prepared for integration with the upcoming Python AI & analytics backend service.
       </div>
     </div>
 
@@ -192,6 +215,8 @@
   <div id="toast-container"></div>
 
   <!-- APPLICATION SCRIPTS -->
+  <script src="api.js"></script>
+  <script src="store.js"></script>
   <script src="mockData.js"></script>
   <script src="app.js"></script>
 </body>

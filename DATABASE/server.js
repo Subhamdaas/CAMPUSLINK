@@ -16,7 +16,17 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'campuslink_super_secret_jwt_key_2026';
+
+// Security: Enforce JWT_SECRET in production, display warning in development
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd && !process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is strictly required in production.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_campuslink_secret_key_change_in_production_2026';
+if (!process.env.JWT_SECRET) {
+  console.warn('[Security Warning]: Running with development fallback JWT secret. Configure JWT_SECRET in DATABASE/.env for production.');
+}
 
 app.use(cors());
 app.use(express.json());
@@ -34,12 +44,12 @@ function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
 
   if (!token) {
-    return res.status(401).json({ success: false, message: 'Authentication required. No token provided.' });
+    return res.status(401).json({ success: false, message: 'Authentication required. No session token provided.' });
   }
 
   jwt.verify(token, JWT_SECRET, (err, decodedUser) => {
     if (err) {
-      return res.status(403).json({ success: false, message: 'Invalid or expired session token.' });
+      return res.status(403).json({ success: false, message: 'Invalid or expired session token. Please log in again.' });
     }
     req.user = decodedUser;
     next();
@@ -67,23 +77,45 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, password, role, title, usn, branch, companyName, institutionName } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Name, email, and password are required.' });
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Full name is required.' });
+    }
+    if (!email || !email.trim()) {
+      return res.status(400).json({ success: false, message: 'Email address is required.' });
+    }
+    if (!password || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
     }
 
     const assignedRole = ['student', 'recruiter', 'officer'].includes(role) ? role : 'student';
+
+    // Role-specific validation
+    if (assignedRole === 'student') {
+      if (!usn || !usn.trim()) {
+        return res.status(400).json({ success: false, message: 'Student USN / Roll Number is required for registration.' });
+      }
+    } else if (assignedRole === 'recruiter') {
+      if (!companyName || !companyName.trim()) {
+        return res.status(400).json({ success: false, message: 'Company / Organization Name is required for recruiter registration.' });
+      }
+    } else if (assignedRole === 'officer') {
+      if (!institutionName || !institutionName.trim()) {
+        return res.status(400).json({ success: false, message: 'Institution Name / Department is required for officer registration.' });
+      }
+    }
+
     const pool = await getPool();
 
     // Check if user already exists
     const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()]);
     if (existing.length > 0) {
-      return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
+      return res.status(409).json({ success: false, message: 'An account with this email address already exists. Please sign in instead.' });
     }
 
     // Hash Password
     const passwordHash = await bcrypt.hash(password, 10);
     const userId = `${assignedRole.substring(0, 3)}_${Date.now()}`;
-    const userTitle = title || (assignedRole === 'student' ? "B.Tech Student '26" : assignedRole === 'recruiter' ? 'Corporate Recruiter' : 'Placement Officer');
+    const userTitle = title || (assignedRole === 'student' ? (branch ? `B.Tech ${branch.split(' ')[0]}` : "B.Tech Student '26") : assignedRole === 'recruiter' ? `${companyName || 'Corporate'} Recruiter` : 'Placement Officer');
     const userAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
 
     // Insert into users table
@@ -96,24 +128,24 @@ app.post('/api/auth/register', async (req, res) => {
     if (assignedRole === 'student') {
       await pool.query(
         `INSERT INTO student_profiles (user_id, usn, branch) VALUES (?, ?, ?)`,
-        [userId, usn || '1CL22CS000', branch || 'Computer Science & Engineering']
+        [userId, usn.trim(), branch ? branch.trim() : 'Computer Science & Engineering']
       );
     } else if (assignedRole === 'recruiter') {
       await pool.query(
         `INSERT INTO recruiter_profiles (user_id, company_name) VALUES (?, ?)`,
-        [userId, companyName || 'Enterprise Partner']
+        [userId, companyName.trim()]
       );
     } else if (assignedRole === 'officer') {
       await pool.query(
         `INSERT INTO officer_profiles (user_id, institution_name) VALUES (?, ?)`,
-        [userId, institutionName || 'National Institute of Technology']
+        [userId, institutionName.trim()]
       );
     }
 
     // Log to Audit Trail
     await pool.query(
       `INSERT INTO audit_logs (user_id, user_email, role, action, details) VALUES (?, ?, ?, ?, ?)`,
-      [userId, email, assignedRole, 'REGISTER_SUCCESS', `Registered as ${assignedRole}`]
+      [userId, email.toLowerCase().trim(), assignedRole, 'REGISTER_SUCCESS', `Registered new ${assignedRole} account`]
     );
 
     // Generate JWT Token
@@ -130,13 +162,13 @@ app.post('/api/auth/register', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Account successfully registered and stored in MySQL database.',
+      message: 'Account successfully registered and saved in MySQL.',
       token,
       user: userPayload
     });
   } catch (error) {
     console.error('[Register Error]:', error);
-    res.status(500).json({ success: false, message: 'Server error during registration: ' + error.message });
+    res.status(500).json({ success: false, message: 'Server error during registration. Please try again later.' });
   }
 });
 
@@ -154,7 +186,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Query user by email
     const [users] = await pool.query('SELECT * FROM users WHERE email = ? AND is_active = 1', [email.toLowerCase().trim()]);
     if (users.length === 0) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials. User not found in MySQL.' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials. User not found in MySQL database.' });
     }
 
     const user = users[0];
@@ -165,18 +197,18 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials. Incorrect password.' });
     }
 
-    // Optional Role Match Verification
+    // Role Match Verification
     if (role && user.role !== role) {
       return res.status(403).json({
         success: false,
-        message: `Role mismatch: This account is registered as a ${user.role.toUpperCase()}, not ${role.toUpperCase()}.`
+        message: `Role mismatch: This account is registered as ${user.role.toUpperCase()}, but you selected ${role.toUpperCase()}. Please select the correct role tab.`
       });
     }
 
     // Log to Audit Trail
     await pool.query(
       `INSERT INTO audit_logs (user_id, user_email, role, action, details) VALUES (?, ?, ?, ?, ?)`,
-      [user.id, user.email, user.role, 'LOGIN_SUCCESS', 'Logged in via API']
+      [user.id, user.email, user.role, 'LOGIN_SUCCESS', 'User authenticated via password hash']
     );
 
     const userPayload = {
@@ -198,7 +230,7 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('[Login Error]:', error);
-    res.status(500).json({ success: false, message: 'Server error during login: ' + error.message });
+    res.status(500).json({ success: false, message: 'Server error during login. Please try again later.' });
   }
 });
 
@@ -209,7 +241,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     const [users] = await pool.query('SELECT id, name, email, role, title, avatar, created_at FROM users WHERE id = ?', [req.user.id]);
     
     if (users.length === 0) {
-      return res.status(404).json({ success: false, message: 'User not found in MySQL.' });
+      return res.status(404).json({ success: false, message: 'User record no longer exists in MySQL.' });
     }
 
     res.json({
@@ -217,11 +249,46 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
       user: users[0]
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[/api/auth/me Error]:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve user session.' });
   }
 });
 
-// 4. DATABASE & HEALTH CHECK
+// 4. LOGOUT USER (RECORDS AUDIT LOG & CONFIRMS CLIENT TOKEN INVALIDATION)
+// Architectural Limitation Note: JWT access tokens are stateless. The client terminates its session
+// by clearing the token from browser storage. This endpoint records the logout in the MySQL
+// audit trail. For strict immediate token revocation before expiration, a token blocklist (e.g. Redis)
+// or token version counter in MySQL would be required.
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    let user = null;
+    if (token) {
+      try {
+        user = jwt.verify(token, JWT_SECRET);
+      } catch (e) {
+        // Token already expired or invalid; logout still succeeds
+      }
+    }
+    if (user) {
+      const pool = await getPool();
+      await pool.query(
+        `INSERT INTO audit_logs (user_id, user_email, role, action, details) VALUES (?, ?, ?, ?, ?)`,
+        [user.id, user.email, user.role, 'LOGOUT', 'User logged out. Client-side session cleared.']
+      );
+    }
+    res.json({
+      success: true,
+      message: 'Session logged out successfully. Note: JWT tokens are stateless; client storage has been cleared.'
+    });
+  } catch (error) {
+    console.error('[Logout Error]:', error);
+    res.json({ success: true, message: 'Logged out locally.' });
+  }
+});
+
+// 5. DATABASE & HEALTH CHECK
 app.get('/api/auth/status', async (req, res) => {
   try {
     const pool = await getPool();
@@ -259,6 +326,16 @@ app.get('/api/protected/recruiter', authenticateToken, requireRole(['recruiter']
 
 app.get('/api/protected/officer', authenticateToken, requireRole(['officer']), (req, res) => {
   res.json({ success: true, message: 'Welcome to the protected Placement Officer Command API.', user: req.user });
+});
+
+// Health Check Endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'CAMPUSLINK API Server',
+    academicSession: '2025–2026',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Default Fallback Route to Frontend index.html
