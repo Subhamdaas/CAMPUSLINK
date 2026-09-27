@@ -1,0 +1,14 @@
+{
+  "name": "campuslink",
+  "version": "2.0.0",
+  "description": "AI-Powered Campus-to-Corporate Placement Management & Analytics Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test-db": "node DATABASE/test-db.js"
+  },
+  "keywords": ["campuslink", "placement", "portal", "analytics"],
+  "author": "Subhamdaas",
+  "license": "MIT"
+}
