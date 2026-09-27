@@ -1595,43 +1595,14 @@ const CampusLinkApp = {
 
           <div class="landing-nav-actions">
             <button id="landing-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode">
-              <i id="landing-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:14px; height:14px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
-              <span id="landing-theme-label" class="landing-theme-label">${CampusLinkApp.currentTheme === 'dark' ? 'Light' : 'Dark'}</span>
+              <i id="landing-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:16px; height:16px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
             </button>
-            <button class="btn btn-secondary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="color:white; border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.08);">
-              <i data-lucide="log-in" style="width:14px; height:14px;"></i>
-              <span>Sign In</span>
-            </button>
-            <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#register')">
-              <i data-lucide="user-plus" style="width:14px; height:14px;"></i>
-              <span>Register</span>
+            <button class="btn btn-primary btn-sm" onclick="CampusLinkApp.navigateTo('#login')" style="padding:8px 18px; font-weight:700;">
+              <i data-lucide="log-in" style="width:15px; height:15px;"></i>
+              <span>Sign In / Login</span>
             </button>
           </div>
         </nav>
-
-        <!-- OFFICIAL LIVE GOVERNMENT / INSTITUTIONAL BULLETIN STRIP -->
-        <div class="govt-bulletin-container">
-          <div class="govt-bulletin-label">
-            <span class="govt-bulletin-pulse"></span>
-            <i data-lucide="megaphone" style="width:14px; height:14px;"></i>
-            <span>OFFICIAL NOTICES</span>
-          </div>
-          <div class="govt-bulletin-ticker">
-            <div class="govt-bulletin-content">
-              <span>🔴 <strong>LATEST:</strong> Phase-1 Centralized Campus Placement 2026-27 Registration is Live for all Accredited Institutions</span>
-              <span class="bulletin-separator">•</span>
-              <span>🎓 <strong>STUDENT DESK:</strong> Proctored Technical Assessments & ATS Resume Scanner active for registered batches</span>
-              <span class="bulletin-separator">•</span>
-              <span>🏢 <strong>CORPORATE RECRUITMENT:</strong> 1,250+ Verified Corporate Partners Onboarded • Schedule conflict-free campus test & interview slots</span>
-              <span class="bulletin-separator">•</span>
-              <span>🏛️ <strong>ACCREDITATION DESK:</strong> Institutional NIRF & NAAC Criterion-V compliance automated tables ready for download</span>
-            </div>
-          </div>
-          <div class="govt-bulletin-date">
-            <i data-lucide="calendar" style="width:13px; height:13px;"></i>
-            <span>Session 2026–27</span>
-          </div>
-        </div>
 
         <!-- DYNAMIC ANIMATED HERO SHOWCASE WITH REAL PHOTOGRAPHY (CAROUSEL) -->
         <div class="govt-showcase-wrapper" id="portals-section">
@@ -1744,6 +1715,29 @@ const CampusLinkApp = {
               <button class="govt-indicator" onclick="CampusLinkApp.goToLandingSlide(1)"></button>
               <button class="govt-indicator" onclick="CampusLinkApp.goToLandingSlide(2)"></button>
             </div>
+          </div>
+        </div>
+
+        <!-- OFFICIAL LIVE GOVERNMENT / INSTITUTIONAL BULLETIN STRIP (MOVED DOWN) -->
+        <div class="govt-bulletin-container" style="margin:22px auto 26px auto;">
+          <div class="govt-bulletin-label">
+            <i data-lucide="megaphone" style="width:14px; height:14px;"></i>
+            <span>OFFICIAL NOTICES</span>
+          </div>
+          <div class="govt-bulletin-ticker">
+            <div class="govt-bulletin-content">
+              <span>🔴 <strong>LATEST:</strong> Phase-1 Centralized Campus Placement 2026-27 Registration is Live for all Accredited Institutions</span>
+              <span class="bulletin-separator">•</span>
+              <span>🎓 <strong>STUDENT DESK:</strong> Proctored Technical Assessments & ATS Resume Scanner active for registered batches</span>
+              <span class="bulletin-separator">•</span>
+              <span>🏢 <strong>CORPORATE RECRUITMENT:</strong> 1,250+ Verified Corporate Partners Onboarded • Schedule conflict-free campus test & interview slots</span>
+              <span class="bulletin-separator">•</span>
+              <span>🏛️ <strong>ACCREDITATION DESK:</strong> Institutional NIRF & NAAC Criterion-V compliance automated tables ready for download</span>
+            </div>
+          </div>
+          <div class="govt-bulletin-date">
+            <i data-lucide="calendar" style="width:13px; height:13px;"></i>
+            <span>Session 2026–27</span>
           </div>
         </div>
 
@@ -2031,8 +2025,7 @@ const CampusLinkApp = {
 
           <div style="display:flex; align-items:center; gap:14px;">
             <button id="auth-theme-toggle" class="landing-theme-btn" onclick="CampusLinkApp.toggleTheme()" title="Toggle Dark/Light Mode">
-              <i id="auth-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:14px; height:14px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
-              <span id="auth-theme-label" class="auth-theme-label">${CampusLinkApp.currentTheme === 'dark' ? 'Light' : 'Dark'}</span>
+              <i id="auth-theme-icon" data-lucide="${CampusLinkApp.currentTheme === 'dark' ? 'sun' : 'moon'}" style="width:16px; height:16px; color:${CampusLinkApp.currentTheme === 'dark' ? '#f59e0b' : '#cbd5e1'};"></i>
             </button>
             <div style="display:flex; align-items:center; gap:8px;">
               <img src="assets/campuslink_logo.png" style="width:24px; height:24px; border-radius:4px; background:white; padding:2px;" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2991/2991148.png'">
@@ -2180,32 +2173,7 @@ const CampusLinkApp = {
               </button>
             </form>
 
-            <!-- 1-CLICK INSTANT DEMO SANDBOX -->
-            <div class="auth-demo-sandbox">
-              <div class="auth-demo-title">
-                <i data-lucide="key" style="width:14px; height:14px; color:var(--gov-gold);"></i>
-                <span>Instant 1-Click Evaluation Accounts</span>
-              </div>
-              <p style="font-size:11.5px; color:var(--text-muted); margin-bottom:10px;">Click any profile below to instantly authenticate and evaluate that specific portal:</p>
-              
-              <div class="auth-demo-buttons">
-                <button type="button" class="btn-demo-quick" onclick="CampusLinkApp.quickDemoLogin('student')">
-                  <i data-lucide="graduation-cap" style="width:16px; height:16px; color:#2563eb;"></i>
-                  <span>Demo Student</span>
-                  <span style="font-size:10px; color:var(--text-muted);">(Aarav Sharma)</span>
-                </button>
-                <button type="button" class="btn-demo-quick" onclick="CampusLinkApp.quickDemoLogin('recruiter')">
-                  <i data-lucide="building-2" style="width:16px; height:16px; color:#8b5cf6;"></i>
-                  <span>Demo Recruiter</span>
-                  <span style="font-size:10px; color:var(--text-muted);">(Google Lead)</span>
-                </button>
-                <button type="button" class="btn-demo-quick" onclick="CampusLinkApp.quickDemoLogin('officer')">
-                  <i data-lucide="shield-check" style="width:16px; height:16px; color:#10b981;"></i>
-                  <span>Demo Officer</span>
-                  <span style="font-size:10px; color:var(--text-muted);">(Dean Sunita)</span>
-                </button>
-              </div>
-            </div>
+<!-- Demo evaluation accounts section removed -->
 
             <!-- FOOTER INFO -->
             <div style="text-align:center; margin-top:20px; font-size:12px; color:var(--text-muted);">
