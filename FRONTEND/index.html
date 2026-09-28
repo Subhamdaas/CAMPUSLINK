@@ -54,14 +54,11 @@
       <!-- Sidebar User Profile Footer -->
       <div class="sidebar-footer">
         <div class="user-quick-profile">
-          <img id="sidebar-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="User" class="user-avatar">
+          <div id="sidebar-user-avatar" class="user-avatar-initials">U</div>
           <div class="user-info-text">
-            <div id="sidebar-user-name" class="user-name">Aarav Sharma</div>
-            <div id="sidebar-user-title" class="user-subtitle">B.Tech CSE '26</div>
+            <div id="sidebar-user-name" class="user-name">User</div>
+            <div id="sidebar-user-title" class="user-subtitle">Role</div>
           </div>
-          <button class="sidebar-logout-btn" onclick="CampusLinkApp.handleLogout()" title="Logout">
-            <i data-lucide="log-out" style="width:15px; height:15px;"></i>
-          </button>
         </div>
       </div>
     </aside>
@@ -116,10 +113,10 @@
           <!-- ONE Central Top-Right User Control [ Avatar / Name ▼ ] -->
           <div class="user-menu-container" id="header-user-menu-container">
             <button class="user-menu-btn" id="header-user-menu-btn" onclick="CampusLinkApp.toggleUserMenu(event)" aria-expanded="false" aria-haspopup="true" title="User Menu">
-              <img id="header-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="User Avatar" class="user-avatar-sm">
+              <div id="header-user-avatar" class="user-avatar-initials-sm">U</div>
               <div class="user-menu-info">
                 <span id="header-user-name" class="user-menu-name">User</span>
-                <span id="header-user-role" class="user-menu-role">Portal</span>
+                <span id="header-user-role" class="user-menu-role">Role</span>
               </div>
               <i data-lucide="chevron-down" style="width:14px; height:14px; color:var(--text-muted);"></i>
             </button>
@@ -127,7 +124,7 @@
             <!-- Dropdown: Profile, Settings, ONE Central Logout -->
             <div class="user-menu-dropdown" id="header-user-dropdown">
               <div class="user-dropdown-header">
-                <div id="dropdown-user-name" style="font-weight:700; font-size:13.5px; color:var(--text-primary);">User Name</div>
+                <div id="dropdown-user-name" style="font-weight:700; font-size:13.5px; color:var(--text-primary);">User</div>
                 <div id="dropdown-user-role" style="font-size:11.5px; color:var(--text-muted);">Role</div>
               </div>
               <div class="user-dropdown-divider"></div>
@@ -189,9 +186,9 @@
 
     <!-- Canned Prompt Chips -->
     <div style="padding:10px 16px; background:#f1f5f9; display:flex; gap:6px; overflow-x:auto;">
-      <button class="badge badge-info" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('How do I improve my System Design score for Google?')">Improve System Design</button>
-      <button class="badge badge-purple" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('What are the critical skill gaps for SDE-1?')">SDE-1 Skill Gaps</button>
-      <button class="badge badge-cyan" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('Explain the Microsoft vs Amazon interview conflict.')">Conflict Summary</button>
+      <button class="badge badge-info" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('How do I prepare for technical placement assessments?')">Assessment Prep</button>
+      <button class="badge badge-purple" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('What core skills are recommended for software engineering roles?')">Core Skill Requirements</button>
+      <button class="badge badge-cyan" style="cursor:pointer; border:none;" onclick="CampusLinkApp.sendCannedAIChat('How does automated drive conflict resolution work?')">Drive Conflicts</button>
     </div>
 
     <div class="ai-drawer-footer">

@@ -23,19 +23,19 @@ const CampusLinkStore = {
       roleLabel: "Student Portal",
       title: "Candidate Aspirant",
       color: "#2563eb",
-      defaultAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+      defaultAvatar: ""
     },
     recruiter: {
       roleLabel: "Corporate Recruiter",
       title: "Talent Acquisition",
       color: "#7c3aed",
-      defaultAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+      defaultAvatar: ""
     },
     officer: {
       roleLabel: "Placement Officer",
       title: "Placement Directorate",
       color: "#10b981",
-      defaultAvatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
+      defaultAvatar: ""
     }
   },
 
@@ -99,18 +99,14 @@ const CampusLinkStore = {
   init: () => {
     try {
       const token = localStorage.getItem('campuslink_jwt_token');
-      const savedUser = localStorage.getItem('campuslink_auth_user');
-      if (token && savedUser) {
-        const user = JSON.parse(savedUser);
-        CampusLinkStore.auth = {
-          user,
-          role: user.role,
-          token,
-          isAuthenticated: true
-        };
-      } else {
-        CampusLinkStore.clearSession();
-      }
+      // Token is remembered locally, but session validation with backend is mandatory.
+      // Cached user JSON must NOT be treated as proof of authentication.
+      CampusLinkStore.auth = {
+        user: null,
+        role: null,
+        token: token || null,
+        isAuthenticated: false
+      };
     } catch (e) {
       CampusLinkStore.clearSession();
     }
@@ -156,25 +152,14 @@ const CampusLinkStore = {
   },
 
   getCurrentUser: () => {
-    if (CampusLinkStore.auth.user) return CampusLinkStore.auth.user;
-    try {
-      const saved = localStorage.getItem('campuslink_auth_user');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        CampusLinkStore.auth.user = parsed;
-        CampusLinkStore.auth.role = parsed.role;
-        CampusLinkStore.auth.isAuthenticated = true;
-        return parsed;
-      }
-    } catch (e) {
-      return null;
-    }
-    return null;
+    return CampusLinkStore.auth.user || null;
   },
 
   setRole: (role) => {
-    if (CampusLinkStore.auth.user) {
-      CampusLinkStore.auth.role = role;
+    // Role is determined exclusively by backend authentication.
+    // Client cannot override auth.role.
+    if (CampusLinkStore.auth.user && CampusLinkStore.auth.user.role) {
+      CampusLinkStore.auth.role = CampusLinkStore.auth.user.role;
     }
   },
 
@@ -221,21 +206,16 @@ const CampusLinkStore = {
         } else if (res.status === 401) {
           CampusLinkStore.clearSession();
           return { valid: false, reason: 'expired', message: res.error || 'Session expired. Please sign in again.' };
+        } else {
+          // Server error or network unreachable — do NOT silently authenticate from cached JSON
+          return { valid: false, reason: 'unreachable', message: res.error || 'Unable to connect to authentication service.' };
         }
       }
 
-      // If network is offline or API unavailable during refresh, check if local token exists
-      const savedUser = CampusLinkStore.getCurrentUser();
-      if (savedUser) {
-        return { valid: true, user: savedUser, offlineWarning: true };
-      }
-
-      CampusLinkStore.clearSession();
-      return { valid: false, reason: 'unreachable', message: 'Unable to connect to authentication service.' };
+      return { valid: false, reason: 'no_api', message: 'Authentication API client unavailable.' };
     } catch (e) {
       console.warn('[Session Validation Exception]:', e);
-      CampusLinkStore.clearSession();
-      return { valid: false, reason: 'error', message: 'Session validation error.' };
+      return { valid: false, reason: 'unreachable', message: 'Unable to connect to authentication service.' };
     }
   },
 
@@ -340,16 +320,16 @@ const CampusLinkStore = {
           portfolio: ''
         },
         academic: {
-          degree: 'Bachelor of Technology (B.Tech)',
-          branch: user?.branch || 'Computer Science & Engineering',
-          currentSemester: '8th Semester',
-          cgpa: 0,
-          standingBacklogs: 0,
-          historyOfBacklogs: 0,
-          tenthPercentage: '—',
-          twelfthPercentage: '—',
-          collegeRollNo: user?.usn || '—',
-          universityRegNo: user?.usn || '—'
+          degree: user?.degree || 'Not provided',
+          branch: user?.branch || 'Not provided',
+          currentSemester: user?.semester || 'Not provided',
+          cgpa: user?.cgpa || 'Not provided',
+          standingBacklogs: user?.backlogs ?? 'Not provided',
+          historyOfBacklogs: user?.historyOfBacklogs ?? 0,
+          tenthPercentage: user?.tenthPercentage || 'Not provided',
+          twelfthPercentage: user?.twelfthPercentage || 'Not provided',
+          collegeRollNo: user?.usn || 'Not provided',
+          universityRegNo: user?.usn || 'Not provided'
         },
         skills: [],
         projects: [],

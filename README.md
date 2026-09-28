@@ -1,39 +1,58 @@
 # CAMPUSLINK
 
-> **AI-Powered Campus-to-Corporate Placement Management & Analytics Platform**
+> **Institutional Campus-to-Corporate Placement Management & Analytics Platform**
 
-CAMPUSLINK is an institutional placement operating system that unifies students, corporate recruiters, and placement officers into a single, high-trust ecosystem. Engineered for accredited engineering and management institutions, CAMPUSLINK streamlines automated skill-gap analysis, multi-vector candidate ranking, conflict-free drive scheduling, and NIRF/NAAC accreditation analytics.
+CAMPUSLINK is an institutional placement operating system designed to unify students, corporate recruiters, and placement officers into a single, high-trust ecosystem. Engineered for accredited engineering and management institutions, CAMPUSLINK provides structured workflows for candidate readiness benchmarking, corporate recruitment drives, conflict-free scheduling, and NIRF/NAAC accreditation reporting.
 
 ---
 
-## Key Capabilities
+## Architectural Overview
+
+```
+┌────────────────────────────────────────────────────────┐
+│                   CAMPUSLINK FRONTEND                  │
+│  - Single authoritative public entry point (Sign In)   │
+│  - Unified authenticated shell (Student/Recruiter/Dean) │
+│  - Reactive client store & clean empty/loading states  │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                  HTTP / REST API Client
+                  (FRONTEND/api.js)
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                   FUTURE BACKEND / API                 │
+│  - Authentication & Session Verification               │
+│  - Role-Based Access Control (RBAC)                    │
+│  - Python AI Engine (Scoring, Matching, NLP Copilot)   │
+│  - Relational Database Operations                      │
+└────────────────────────────────────────────────────────┘
+```
+
+The frontend is architected as a clean Single-Page Application (SPA) with an API abstraction layer (`FRONTEND/api.js`). It communicates with the backend for session restoration, authentication, and live operational records. When backend or AI microservices are offline, the frontend provides clear empty and unavailable states rather than fabricating synthetic data or mock accounts.
+
+---
+
+## Platform Capabilities
 
 ### 1. Student Career Portal
-- **Readiness Benchmark (0–100)**: Multi-pillar evaluation across Academics, DSA, System Design, Projects, and Communication.
-- **AI Skill Gap Visualizer**: Compares student competencies against industry demand profiles (Full Stack, AI/Data Science, DevOps/Cloud).
-- **AI ATS Resume Scanner**: Detects keyword gaps, formats, and structural alignment with 94%+ hiring accuracy.
-- **Interactive Proctored MCQ Assessments**: Timed diagnostic quizzes with instant percentile rankings.
-- **Application & Interview Tracker**: Multi-stage progress tracking with verified offer acceptance desks.
+- **Readiness Benchmark**: Multi-pillar employability evaluation across Academics, DSA, System Design, Projects, and Communication.
+- **Skill Gap Visualizer**: Compares student competencies against industry benchmark profiles.
+- **ATS Resume Analyzer**: Identifies keyword gaps, formatting improvements, and structural alignment.
+- **Assessment Center**: Diagnostic technical quizzes and proctored coding assessments.
+- **Applications & Offers Vault**: Progress tracking from initial application to offer letter verification.
 
-### 2. Corporate Recruiter Suite
-- **AI Job Description Analyzer**: Converts raw JD text into structured requirements, eligibility criteria, and skill tags.
-- **Multi-Vector Candidate Matcher**: Ranks applicant pools across algorithmic benchmarks, domain projects, and academics.
-- **Explainability Engine**: Transparent "Why Matched" and "Why Not Shortlisted" insights for recruiters and students.
-- **Conflict-Free Drive Scheduling**: Live timeline manager with 1-click AI conflict resolution for campus interviews and test slots.
+### 2. Corporate Recruiter Console
+- **Job Creation & Requirements**: Standardized job description builder with salary, CGPA, and branch eligibility thresholds.
+- **Candidate Matching**: Evaluates applicant compatibility against defined requirements.
+- **Drive Scheduler**: Candidate overlap detection and interview loop scheduling.
+- **Hiring Pipeline**: Real-time conversion tracking across screening, coding assessment, and technical interview stages.
 
-### 3. Placement Command Center (Officers / Deans)
-- **Executive KPIs**: Real-time conversion metrics, average and highest CTC, placement percentages, and department-wise tracking.
-- **NIRF & NAAC Audit Desk**: One-click generation of Criterion V compliance tables with exportable PDF, Excel, and CSV formats.
-- **AI Early Risk Flagging**: Proactive identification of at-risk students with mentor assignment workflows.
-- **Document Verification Vault**: Centralized administrative approval desk for academic marksheets and certificates.
-
----
-
-## Tech Stack & Architecture
-
-- **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3 with custom CSS Variables design system, Glassmorphism, Dark/Light mode switcher, and Lucide icons.
-- **Backend**: Node.js, Express.js REST API with JWT-based Role-Based Access Control (RBAC).
-- **Database**: MySQL relational database (`campuslink_db`) with connection pooling and automated schema initialization.
+### 3. Placement Command Center (Deans & Officers)
+- **Executive Command**: Departmental placement tracking, verified offers, and median compensation reporting.
+- **Accreditation & Compliance Reporting**: NIRF Data Capture System and NAAC Criterion 5 audit tables with CSV export.
+- **Academic Risk Identification**: Flagging at-risk students with mentor assignment workflows.
+- **Document Verification**: Centralized administrative approval desk for academic transcripts and certificates.
 
 ---
 
@@ -43,20 +62,19 @@ CAMPUSLINK is an institutional placement operating system that unifies students,
 CAMPUSLINK/
 ├── DATABASE/
 │   ├── .env.example        # Environment variables template
-│   ├── db.js               # MySQL pool & schema setup
+│   ├── db.js               # MySQL connection pool
 │   ├── package.json        # Backend dependencies
-│   ├── schema.sql          # Clean relational SQL schema
-│   ├── server.js           # Express API server (serves API & static frontend)
-│   └── test-db.js          # DB test utility
+│   ├── schema.sql          # Relational SQL schema
+│   └── server.js           # API server & static host
 └── FRONTEND/
-    ├── app.js              # Core SPA router, portals logic, modals, theme engine
-    ├── assets/             # Logos, icons, clean_room.jpg hero background
-    ├── auth.css            # Authentication styles & glassmorphic effects
-    ├── auth.html           # Authentication desk
-    ├── auth.js             # Auth handlers, captcha generator, eye password toggle
-    ├── index.html          # Main SPA shell & modal host
-    ├── mockData.js         # Reactive store & evaluation dataset
-    └── styles.css          # Design tokens, dark/light theme, layout grids
+    ├── app.js              # SPA router, UI renderer, modal controller
+    ├── assets/             # Institutional logos and banner assets
+    ├── auth.css            # Authentication styling
+    ├── api.js              # Centralized API client & HTTP transport
+    ├── index.html          # SPA shell and modal host
+    ├── mockData.js         # Client-side state definitions & fallbacks
+    ├── store.js            # Reactive application state store
+    └── styles.css          # Design system tokens and layout styles
 ```
 
 ---
@@ -67,43 +85,27 @@ CAMPUSLINK/
 - Node.js (v16+)
 - MySQL Server (v8.0+)
 
-### 1. Database Setup
-1. Ensure MySQL is running on port 3306.
-2. Create the database:
-   ```sql
-   CREATE DATABASE campuslink_db;
+### Setup Instructions
+1. Clone the repository and configure environment variables in `DATABASE/.env` (see `DATABASE/.env.example`).
+2. Install dependencies:
+   ```bash
+   cd DATABASE
+   npm install
    ```
-3. Import `DATABASE/schema.sql` (or allow `DATABASE/server.js` to automatically initialize tables on startup).
-
-### 2. Backend Setup
-```bash
-cd DATABASE
-cp .env.example .env
-# Edit .env with your MySQL credentials
-npm install
-node server.js
-```
-The server will start at `http://localhost:5000`.
-
-### 3. Access the Platform
-Open your browser and navigate to:
-```
-http://localhost:5000/
-```
-Or view the standalone authentication desk at:
-```
-http://localhost:5000/auth.html
-```
+3. Start the application:
+   ```bash
+   node server.js
+   ```
+4. Access the portal at `http://localhost:5000/`.
 
 ---
 
-## Evaluation Demo Accounts (1-Click Login Available)
+## Authentication & User Access
 
-| Role | Email | Password |
-|---|---|---|
-| **Student Aspirant** | `student@campuslink.edu` | `password123` |
-| **Corporate Recruiter** | `rohit@google.com` | `password123` |
-| **Placement Officer** | `officer@campuslink.edu` | `password123` |
+- **Public Header**: A single `[ Sign In ]` action in the top public navigation bar serves as the exclusive entry point.
+- **Centralized Authentication**: Login authenticates against the backend API endpoint (`/api/auth/login`). The user's authorized role is returned by the server and determines the destination portal (`student`, `recruiter`, or `officer`).
+- **Portal Gateways**: Portal cards navigate to the respective dashboard if authenticated with that role, or direct unauthenticated users to the central login screen.
+- **Session Security**: Session tokens are verified against the backend. Cached local user records are never treated as proof of authentication if the session validation fails.
 
 ---
 
