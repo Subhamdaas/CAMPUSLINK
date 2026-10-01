@@ -8,9 +8,11 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const path = require('path');
 const dotenv = require('dotenv');
 const { getPool, initDatabase } = require('./db');
+
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
@@ -287,6 +289,214 @@ app.post('/api/auth/logout', async (req, res) => {
     res.json({ success: true, message: 'Logged out locally.' });
   }
 });
+
+// -------------------------------------------------------------
+// GMAIL OTP PASSWORD RESET SERVICE & ROUTES
+// -------------------------------------------------------------
+async function sendResetOtpEmail(toEmail, otp, userName = 'CampusLink User') {
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS;
+  const emailFrom = process.env.EMAIL_FROM || '"CampusLink Verification" <no-reply@campuslink.edu>';
+
+  if (!emailUser || !emailPass) {
+    console.log('\n=============================================================');
+    console.log('🔑 [CAMPUSLINK PASSWORD RESET OTP]');
+    console.log(`Recipient: ${toEmail}`);
+    console.log(`User: ${userName}`);
+    console.log(`Verification Code (OTP): ${otp}`);
+    console.log('Valid for: 10 minutes');
+    console.log('NOTE: To send actual emails to Gmail inbox, configure EMAIL_USER and EMAIL_PASS in DATABASE/.env');
+    console.log('=============================================================\n');
+    return { sent: false, mode: 'console', devOtp: otp };
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: process.env.EMAIL_SERVICE || 'gmail',
+    auth: {
+      user: emailUser,
+      pass: emailPass
+    }
+  });
+
+  const mailOptions = {
+    from: emailFrom,
+    to: toEmail,
+    subject: `CampusLink - Password Reset Verification Code: ${otp}`,
+    html: `
+      <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; max-width:540px; margin:0 auto; padding:28px 24px; background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; color:#1e293b;">
+        <div style="text-align:center; padding-bottom:20px; border-bottom:1px solid #f1f5f9;">
+          <h2 style="margin:0; color:#0f172a; font-size:22px; font-weight:800; letter-spacing:-0.5px;">CAMPUSLINK</h2>
+          <p style="margin:4px 0 0; color:#64748b; font-size:13px;">Career & Placement Management Portal</p>
+        </div>
+        <div style="padding:24px 0 16px;">
+          <h3 style="margin:0 0 12px; color:#0f172a; font-size:18px;">Password Reset Request</h3>
+          <p style="margin:0 0 16px; color:#475569; font-size:14px; line-height:1.6;">
+            Hello <strong>${userName}</strong>,<br>
+            We received a request to reset your password for your registered CampusLink account (<strong>${toEmail}</strong>).
+          </p>
+          <p style="margin:0 0 12px; color:#475569; font-size:14px;">
+            Your 6-digit one-time password (OTP) verification code is:
+          </p>
+          <div style="text-align:center; margin:24px 0;">
+            <div style="display:inline-block; padding:14px 32px; background:#f8fafc; border:2px dashed #0284c7; border-radius:10px; font-size:32px; font-weight:800; letter-spacing:8px; color:#0369a1; font-family:monospace;">
+              ${otp}
+            </div>
+          </div>
+          <p style="margin:0 0 8px; color:#ef4444; font-size:13px; font-weight:600; text-align:center;">
+            ⏳ This code is valid for 10 minutes only.
+          </p>
+          <p style="margin:16px 0 0; color:#64748b; font-size:13px; line-height:1.5;">
+            If you did not request this password reset, please ignore this email or contact your placement administrator immediately. Your password will remain unchanged.
+          </p>
+        </div>
+        <div style="padding-top:20px; border-top:1px solid #f1f5f9; text-align:center; font-size:12px; color:#94a3b8;">
+          © ${new Date().getFullYear()} CampusLink Enterprise. Automated security notification.
+        </div>
+      </div>
+    `
+  };
+
+  await transporter.sendMail(mailOptions);
+  return { sent: true, mode: 'smtp' };
+}
+
+// 5. REQUEST PASSWORD RESET OTP (SENT TO REGISTERED GMAIL)
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ success: false, message: 'Registered email address is required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const pool = await getPool();
+
+    // Check if user exists in MySQL
+    const [users] = await pool.query('SELECT id, name, email FROM users WHERE email = ? AND is_active = 1', [cleanEmail]);
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No registered account found with this email address. Please verify your email or sign up.'
+      });
+    }
+
+    const user = users[0];
+
+    // Generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 10 minutes expiry from now
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Delete any previous pending OTPs for this email
+    await pool.query('DELETE FROM password_resets WHERE email = ?', [cleanEmail]);
+
+    // Insert new OTP in MySQL
+    await pool.query(
+      'INSERT INTO password_resets (email, otp, expires_at) VALUES (?, ?, ?)',
+      [cleanEmail, otp, expiresAt]
+    );
+
+    // Record in Audit Trail
+    await pool.query(
+      `INSERT INTO audit_logs (user_id, user_email, role, action, details) VALUES (?, ?, ?, ?, ?)`,
+      [user.id, cleanEmail, null, 'FORGOT_PASSWORD_OTP_REQUESTED', '6-digit OTP generated for password reset']
+    );
+
+    // Send email via Gmail SMTP or console fallback
+    let emailResult = { sent: false, mode: 'console' };
+    try {
+      emailResult = await sendResetOtpEmail(cleanEmail, otp, user.name);
+    } catch (mailErr) {
+      console.error('[Nodemailer Error]:', mailErr.message);
+      emailResult = { sent: false, mode: 'console_fallback', error: mailErr.message, devOtp: otp };
+    }
+
+    const responsePayload = {
+      success: true,
+      message: emailResult.sent 
+        ? `A 6-digit verification code has been sent to your Gmail (${cleanEmail}). Please check your inbox and spam folder.`
+        : `Verification code generated for ${cleanEmail}. (Check server console or enter code).`
+    };
+
+    if (emailResult.devOtp) {
+      responsePayload.devOtp = emailResult.devOtp;
+    }
+
+    res.json(responsePayload);
+  } catch (error) {
+    console.error('[Forgot Password Error]:', error);
+    res.status(500).json({ success: false, message: 'Server error processing password reset request.' });
+  }
+});
+
+// 6. VERIFY OTP AND RESET NEW PASSWORD
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({ success: false, message: 'Email address is required.' });
+    }
+    if (!otp || !otp.trim()) {
+      return res.status(400).json({ success: false, message: '6-digit verification code is required.' });
+    }
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanOtp = otp.trim();
+    const pool = await getPool();
+
+    // Verify OTP in MySQL
+    const [resets] = await pool.query(
+      'SELECT * FROM password_resets WHERE email = ? AND otp = ? AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
+      [cleanEmail, cleanOtp]
+    );
+
+    if (resets.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification code. Please request a new OTP.'
+      });
+    }
+
+    // Check that user exists
+    const [users] = await pool.query('SELECT id, name, role FROM users WHERE email = ? AND is_active = 1', [cleanEmail]);
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'User account not found.' });
+    }
+
+    const user = users[0];
+
+    // Hash the new password with bcrypt
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password in users table
+    await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, cleanEmail]);
+
+    // Clean up used OTP from password_resets
+    await pool.query('DELETE FROM password_resets WHERE email = ?', [cleanEmail]);
+
+    // Record in Audit Trail
+    await pool.query(
+      `INSERT INTO audit_logs (user_id, user_email, role, action, details) VALUES (?, ?, ?, ?, ?)`,
+      [user.id, cleanEmail, user.role, 'PASSWORD_RESET_SUCCESS', 'Password updated successfully via OTP verification']
+    );
+
+    console.log(`[MySQL Auth] Password reset successfully for ${cleanEmail} (${user.role})`);
+
+    res.json({
+      success: true,
+      message: 'Your password has been successfully reset! You can now log in with your new password.'
+    });
+  } catch (error) {
+    console.error('[Reset Password Error]:', error);
+    res.status(500).json({ success: false, message: 'Server error updating password. Please try again later.' });
+  }
+});
+
 
 // 5. DATABASE & HEALTH CHECK
 app.get('/api/auth/status', async (req, res) => {

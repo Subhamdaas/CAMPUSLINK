@@ -59,8 +59,8 @@ const CampusLinkApp = {
     // 2. Setup hash change listener for routing
     window.addEventListener('hashchange', CampusLinkApp.handleRouteChange);
     
-    // 3. Initial route determination: Default to Landing Page if not signed in
-    if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#landing') {
+    // 3. Initial route determination: Always arrive at Landing Page if no active session exists
+    if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#landing' || !CampusLinkApp.currentUser) {
       window.location.hash = '#landing';
       CampusLinkApp.renderLandingPage();
     } else {
@@ -3082,7 +3082,13 @@ const CampusLinkApp = {
                     </div>
                     <div id="password-meter-text" class="password-meter-text">Enter at least 6 characters</div>
                   </div>
+                  ${!isRegister ? `
+                    <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+                      <a href="javascript:void(0)" onclick="CampusLinkApp.openForgotPasswordModal(document.getElementById('auth-email') ? document.getElementById('auth-email').value : '')" class="forgot-link" style="font-size:12.5px; font-weight:600; color:#0284c7; text-decoration:none; cursor:pointer;">Forgot Password?</a>
+                    </div>
+                  ` : ''}
                 </div>
+
 
                 <!-- CAPTCHA VERIFICATION -->
                 <div class="auth-form-group" style="margin-top:14px;">
@@ -3172,9 +3178,9 @@ const CampusLinkApp = {
     window.location.hash = `#${isRegister ? 'register' : 'login'}?role=${role}`;
   },
 
-  handlePasswordInput: (val) => {
-    const fill = document.getElementById('password-meter-fill');
-    const text = document.getElementById('password-meter-text');
+  handlePasswordInput: (val, fillId = 'password-meter-fill', textId = 'password-meter-text') => {
+    const fill = document.getElementById(fillId);
+    const text = document.getElementById(textId);
     if (!fill || !text) return;
 
     if (!val || val.length === 0) {
@@ -3327,8 +3333,280 @@ const CampusLinkApp = {
   },
 
   // -------------------------------------------------------------
-  // ALL 40+ SUBVIEWS ORGANIZED UNDER VIEW REPOSITORIES
+  // GMAIL OTP FORGOT & RESET PASSWORD CONTROLLERS
   // -------------------------------------------------------------
+  openForgotPasswordModal: (prefilledEmail = '') => {
+    const modalHTML = `
+      <div style="padding:28px 24px; max-width:460px; width:100%; margin:0 auto; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:42px; height:42px; border-radius:12px; background:rgba(2,132,199,0.12); display:flex; align-items:center; justify-content:center; color:#0284c7; flex-shrink:0;">
+              <i data-lucide="key-round" style="width:22px; height:22px;"></i>
+            </div>
+            <div>
+              <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary); letter-spacing:-0.3px;">Reset Password</h3>
+              <p style="margin:3px 0 0; font-size:12.5px; color:var(--text-muted);">Step 1 of 2: Verify registered email</p>
+            </div>
+          </div>
+          <button type="button" onclick="CampusLinkApp.closeModal()" style="background:none; border:none; cursor:pointer; color:var(--text-muted); padding:4px;" aria-label="Close">
+            <i data-lucide="x" style="width:20px; height:20px;"></i>
+          </button>
+        </div>
+
+        <p style="font-size:13.5px; color:var(--text-secondary); line-height:1.5; margin:0 0 18px;">
+          Enter the Gmail or institutional email address associated with your account. We will send a secure 6-digit one-time password (OTP).
+        </p>
+
+        <form id="forgot-password-step1-form" onsubmit="CampusLinkApp.handleRequestPasswordOtp(event)">
+          <div class="auth-form-group" style="margin-bottom:20px;">
+            <label class="auth-form-label" style="font-size:12px;">Registered Email Address <span style="color:#ef4444;">*</span></label>
+            <div style="position:relative; display:flex; align-items:center;">
+              <input type="email" id="reset-email" class="auth-form-input" placeholder="e.g. yourname@gmail.com" value="${prefilledEmail ? prefilledEmail.replace(/"/g, '&quot;') : ''}" required autocomplete="email" autofocus>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:24px;">
+            <button type="button" class="btn btn-secondary" onclick="CampusLinkApp.closeModal()" style="flex:1; justify-content:center;">
+              Cancel
+            </button>
+            <button type="submit" id="btn-send-otp" class="btn btn-primary" style="flex:2; justify-content:center;">
+              <i data-lucide="send" style="width:16px; height:16px;"></i>
+              <span>Send OTP Code</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    CampusLinkApp.openModal(modalHTML);
+  },
+
+  handleRequestPasswordOtp: async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const emailInput = document.getElementById('reset-email');
+    const sendBtn = document.getElementById('btn-send-otp');
+    const email = emailInput ? emailInput.value.trim() : '';
+
+    if (!email) {
+      CampusLinkApp.showToast("Please enter your registered email address.", "warning");
+      return;
+    }
+
+    const originalBtnHtml = sendBtn ? sendBtn.innerHTML : '';
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = `
+        <span style="display:inline-block; animation:spin 1s linear infinite; margin-right:6px;">⟳</span>
+        <span>Sending OTP...</span>
+      `;
+    }
+
+    try {
+      const res = await CampusLinkAPI.forgotPassword(email);
+
+      if (res.success) {
+        CampusLinkApp.showToast(res.raw?.message || "Verification code dispatched!", "success");
+        CampusLinkApp.renderOtpStep(email, res.raw?.devOtp || null);
+      } else {
+        CampusLinkApp.showToast(res.error || res.raw?.message || "Unable to send verification code. Check email address.", "danger");
+        if (sendBtn) {
+          sendBtn.disabled = false;
+          sendBtn.innerHTML = originalBtnHtml;
+          if (window.lucide) window.lucide.createIcons();
+        }
+      }
+    } catch (err) {
+      CampusLinkApp.showToast("Network error communicating with authentication service.", "danger");
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = originalBtnHtml;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    }
+  },
+
+  renderOtpStep: (email, devOtp = null) => {
+    const modalHTML = `
+      <div style="padding:28px 24px; max-width:460px; width:100%; margin:0 auto; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:42px; height:42px; border-radius:12px; background:rgba(16,185,129,0.12); display:flex; align-items:center; justify-content:center; color:#10b981; flex-shrink:0;">
+              <i data-lucide="shield-check" style="width:22px; height:22px;"></i>
+            </div>
+            <div>
+              <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--text-primary); letter-spacing:-0.3px;">Enter OTP & New Password</h3>
+              <p style="margin:3px 0 0; font-size:12.5px; color:var(--text-muted);">Step 2 of 2: Set your new credentials</p>
+            </div>
+          </div>
+          <button type="button" onclick="CampusLinkApp.closeModal()" style="background:none; border:none; cursor:pointer; color:var(--text-muted); padding:4px;" aria-label="Close">
+            <i data-lucide="x" style="width:20px; height:20px;"></i>
+          </button>
+        </div>
+
+        <div style="background:rgba(2,132,199,0.08); border:1px solid rgba(2,132,199,0.2); border-radius:8px; padding:10px 14px; margin-bottom:18px; font-size:12.5px; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+          <i data-lucide="mail" style="width:16px; height:16px; color:#0284c7; flex-shrink:0;"></i>
+          <span>OTP code sent to: <strong style="color:#0369a1;">${email}</strong></span>
+        </div>
+
+        ${devOtp ? `
+          <div style="background:rgba(245,158,11,0.1); border:1px dashed #f59e0b; border-radius:8px; padding:10px 14px; margin-bottom:18px; font-size:12.5px; color:#b45309;">
+            <strong>Dev Mode Helper:</strong> Your OTP code is <code style="font-weight:800; font-size:14px; background:white; padding:2px 6px; border-radius:4px; color:#b45309;">${devOtp}</code> (also logged in backend terminal).
+          </div>
+        ` : ''}
+
+        <form id="forgot-password-step2-form" onsubmit="CampusLinkApp.handleConfirmPasswordReset(event, '${email}')">
+          <!-- OTP Code Input -->
+          <div class="auth-form-group" style="margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label class="auth-form-label" style="margin-bottom:0; font-size:12px;">6-Digit OTP Code <span style="color:#ef4444;">*</span></label>
+              <button type="button" id="btn-resend-otp" onclick="CampusLinkApp.handleResendResetOtp('${email}')" style="background:none; border:none; color:#0284c7; font-size:11.5px; font-weight:600; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;">
+                <i data-lucide="rotate-cw" style="width:12px; height:12px;"></i>
+                <span>Resend Code</span>
+              </button>
+            </div>
+            <input type="text" id="reset-otp" class="auth-form-input" placeholder="••••••" maxlength="6" pattern="[0-9]{6}" required autocomplete="one-time-code" autofocus style="text-align:center; font-size:22px; font-weight:800; letter-spacing:8px; font-family:'Courier New', monospace; padding:10px;">
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Valid for 10 minutes from generation.</div>
+          </div>
+
+          <!-- New Password Input -->
+          <div class="auth-form-group" style="margin-bottom:14px;">
+            <label class="auth-form-label" style="font-size:12px;">New Password <span style="color:#ef4444;">*</span></label>
+            <div style="position:relative; display:flex; align-items:center;">
+              <input type="password" id="reset-new-password" class="auth-form-input" placeholder="New password (min 6 characters)" minlength="6" required autocomplete="new-password" oninput="CampusLinkApp.handlePasswordInput(this.value, 'reset-meter-fill', 'reset-meter-text')" style="padding-right:42px;">
+              <button type="button" class="auth-password-toggle-btn" onclick="CampusLinkApp.togglePasswordVisibility('reset-new-password', this)" title="Show/Hide Password" aria-label="Toggle password visibility">
+                <i data-lucide="eye" style="width:18px; height:18px;"></i>
+              </button>
+            </div>
+            <div class="password-meter">
+              <div class="password-meter-bar">
+                <div id="reset-meter-fill" class="password-meter-fill" style="width:0%; background:#cbd5e1;"></div>
+              </div>
+              <div id="reset-meter-text" class="password-meter-text">Enter at least 6 characters</div>
+            </div>
+          </div>
+
+          <!-- Confirm Password Input -->
+          <div class="auth-form-group" style="margin-bottom:20px;">
+            <label class="auth-form-label" style="font-size:12px;">Confirm New Password <span style="color:#ef4444;">*</span></label>
+            <div style="position:relative; display:flex; align-items:center;">
+              <input type="password" id="reset-confirm-password" class="auth-form-input" placeholder="Confirm new password" minlength="6" required autocomplete="new-password" style="padding-right:42px;">
+              <button type="button" class="auth-password-toggle-btn" onclick="CampusLinkApp.togglePasswordVisibility('reset-confirm-password', this)" title="Show/Hide Password" aria-label="Toggle password visibility">
+                <i data-lucide="eye" style="width:18px; height:18px;"></i>
+              </button>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:24px;">
+            <button type="button" class="btn btn-secondary" onclick="CampusLinkApp.openForgotPasswordModal('${email}')" style="flex:1; justify-content:center;">
+              Back
+            </button>
+            <button type="submit" id="btn-submit-reset" class="btn btn-primary" style="flex:2; justify-content:center;">
+              <i data-lucide="check-circle" style="width:16px; height:16px;"></i>
+              <span>Save & Update</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    CampusLinkApp.openModal(modalHTML);
+    setTimeout(() => {
+      document.getElementById('reset-otp')?.focus();
+    }, 100);
+  },
+
+  handleResendResetOtp: async (email) => {
+    const resendBtn = document.getElementById('btn-resend-otp');
+    if (resendBtn) {
+      resendBtn.disabled = true;
+      resendBtn.innerText = 'Sending...';
+    }
+
+    try {
+      const res = await CampusLinkAPI.forgotPassword(email);
+      if (res.success) {
+        CampusLinkApp.showToast("A fresh OTP code has been dispatched to your email!", "success");
+        CampusLinkApp.renderOtpStep(email, res.raw?.devOtp || null);
+      } else {
+        CampusLinkApp.showToast(res.error || res.raw?.message || "Failed to resend code.", "danger");
+        if (resendBtn) {
+          resendBtn.disabled = false;
+          resendBtn.innerText = 'Resend Code';
+        }
+      }
+    } catch (e) {
+      CampusLinkApp.showToast("Network error resending code.", "danger");
+      if (resendBtn) {
+        resendBtn.disabled = false;
+        resendBtn.innerText = 'Resend Code';
+      }
+    }
+  },
+
+  handleConfirmPasswordReset: async (e, email) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const otpInput = document.getElementById('reset-otp');
+    const newPassInput = document.getElementById('reset-new-password');
+    const confirmPassInput = document.getElementById('reset-confirm-password');
+    const submitBtn = document.getElementById('btn-submit-reset');
+
+    const otp = otpInput ? otpInput.value.trim() : '';
+    const newPassword = newPassInput ? newPassInput.value : '';
+    const confirmPassword = confirmPassInput ? confirmPassInput.value : '';
+
+    if (!otp || otp.length !== 6) {
+      CampusLinkApp.showToast("Please enter the complete 6-digit OTP code.", "warning");
+      otpInput?.focus();
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      CampusLinkApp.showToast("New password must be at least 6 characters long.", "warning");
+      newPassInput?.focus();
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      CampusLinkApp.showToast("Password confirmation does not match. Please re-type.", "danger");
+      confirmPassInput?.focus();
+      return;
+    }
+
+    const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <span style="display:inline-block; animation:spin 1s linear infinite; margin-right:6px;">⟳</span>
+        <span>Updating Password...</span>
+      `;
+    }
+
+    try {
+      const res = await CampusLinkAPI.resetPassword(email, otp, newPassword);
+
+      if (res.success) {
+        CampusLinkApp.closeModal();
+        CampusLinkApp.showToast(res.raw?.message || "Password successfully reset! Please sign in with your new password.", "success");
+        CampusLinkApp.navigateTo('#login');
+      } else {
+        CampusLinkApp.showToast(res.error || res.raw?.message || "Password reset failed. Please check the OTP code.", "danger");
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml;
+          if (window.lucide) window.lucide.createIcons();
+        }
+      }
+    } catch (err) {
+      CampusLinkApp.showToast("Network error completing password reset.", "danger");
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHtml;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    }
+  },
   views: {
     // -----------------------------------------------------------
     // 1. STUDENT DASHBOARD

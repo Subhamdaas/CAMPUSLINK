@@ -76,3 +76,14 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     INDEX idx_audit_user (user_id),
     INDEX idx_audit_action (action)
 ) ENGINE=InnoDB;
+
+-- 6. PASSWORD RESETS OTP TABLE (FOR GMAIL OTP PASSWORD RESETS)
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(191) NOT NULL,
+    otp VARCHAR(6) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_reset_email (email)
+) ENGINE=InnoDB;
+

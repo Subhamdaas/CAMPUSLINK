@@ -127,7 +127,19 @@ async function initDatabase() {
       ) ENGINE=InnoDB;
     `);
 
-    // 7. Seed Initial Demo Accounts if users table is empty
+    // 7. Create Password Resets Table
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(191) NOT NULL,
+        otp VARCHAR(6) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_reset_email (email)
+      ) ENGINE=InnoDB;
+    `);
+
+    // 8. Seed Initial Demo Accounts if users table is empty
     const [rows] = await connection.query('SELECT COUNT(*) as count FROM users');
     if (rows[0].count === 0) {
       console.log('[MySQL] Seeding default demo accounts with bcrypt password hashes...');

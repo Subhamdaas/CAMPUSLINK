@@ -166,6 +166,27 @@ const CampusLinkAPI = {
     });
   },
 
+  /**
+   * Request 6-digit OTP to reset forgotten password via Gmail.
+   */
+  forgotPassword: async (email) => {
+    return await CampusLinkAPI.request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+  },
+
+  /**
+   * Verify 6-digit OTP and set new password.
+   */
+  resetPassword: async (email, otp, newPassword) => {
+    return await CampusLinkAPI.request('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword })
+    });
+  },
+
+
   // -------------------------------------------------------------
   // CORE OPERATIONAL DATA ENDPOINTS
   // (Boundaries prepared for upcoming Python backend)

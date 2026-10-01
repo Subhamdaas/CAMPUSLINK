@@ -95,12 +95,18 @@ const CampusLinkStore = {
 
   /**
    * Initialize and synchronize store from client storage
+   * Uses sessionStorage so sessions automatically terminate when browser/laptop closes.
    */
   init: () => {
     try {
-      const token = localStorage.getItem('campuslink_jwt_token');
-      // Token is remembered locally, but session validation with backend is mandatory.
-      // Cached user JSON must NOT be treated as proof of authentication.
+      // Clear legacy persistent localStorage tokens so stale sessions don't survive reboots
+      if (localStorage.getItem('campuslink_jwt_token')) {
+        localStorage.removeItem('campuslink_jwt_token');
+        localStorage.removeItem('campuslink_auth_user');
+        localStorage.removeItem('campuslink_active_role');
+      }
+      const token = sessionStorage.getItem('campuslink_jwt_token');
+      // Token is remembered locally in sessionStorage, but session validation with backend is mandatory.
       CampusLinkStore.auth = {
         user: null,
         role: null,
@@ -112,7 +118,7 @@ const CampusLinkStore = {
     }
   },
 
-  // Session Management
+  // Session Management (Bound strictly to active browser tab/window lifetime)
   setSession: (user, token) => {
     if (!user || !token) return;
     CampusLinkStore.auth = {
@@ -122,11 +128,11 @@ const CampusLinkStore = {
       isAuthenticated: true
     };
     try {
-      localStorage.setItem('campuslink_jwt_token', token);
-      localStorage.setItem('campuslink_auth_user', JSON.stringify(user));
-      localStorage.setItem('campuslink_active_role', user.role);
+      sessionStorage.setItem('campuslink_jwt_token', token);
+      sessionStorage.setItem('campuslink_auth_user', JSON.stringify(user));
+      sessionStorage.setItem('campuslink_active_role', user.role);
     } catch (e) {
-      console.warn('Unable to persist session to localStorage', e);
+      console.warn('Unable to persist session to sessionStorage', e);
     }
   },
 
@@ -138,17 +144,20 @@ const CampusLinkStore = {
       isAuthenticated: false
     };
     try {
+      sessionStorage.removeItem('campuslink_jwt_token');
+      sessionStorage.removeItem('campuslink_auth_user');
+      sessionStorage.removeItem('campuslink_active_role');
+      sessionStorage.removeItem('campuslink_intended_dest');
       localStorage.removeItem('campuslink_jwt_token');
       localStorage.removeItem('campuslink_auth_user');
       localStorage.removeItem('campuslink_active_role');
-      sessionStorage.removeItem('campuslink_intended_dest');
     } catch (e) {
       // Ignore storage errors
     }
   },
 
   getAuthToken: () => {
-    return CampusLinkStore.auth.token || localStorage.getItem('campuslink_jwt_token') || null;
+    return CampusLinkStore.auth.token || sessionStorage.getItem('campuslink_jwt_token') || null;
   },
 
   getCurrentUser: () => {
